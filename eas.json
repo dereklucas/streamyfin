@@ -54,6 +54,7 @@
     "production": {
       "bun": "1.4.4",
       "environment": "production",
+      "channel": "production",
       "autoIncrement": true,
       "android": {
         "image": "latest",

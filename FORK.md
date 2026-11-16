@@ -13,8 +13,9 @@ bundle ID, and fixes go back upstream as PRs.
 | `fix/*`       | One branch per fix, cut from `development`, merged back via PR.               |
 
 Fork-only changes live in their own commits (`chore(fork): ...`) and touch
-only `app.json`, `eas.json`, `.eas/workflows/testflight.yml`, `FORK.md` and the
-fork note at the end of `CLAUDE.md`. Keep fixes out of those commits, so a fix
+only `app.json`, `eas.json`, `package.json`/`bun.lock` (expo-updates),
+`.eas/workflows/testflight.yml`, `FORK.md` and the fork note at the end of
+`CLAUDE.md`. Keep fixes out of those commits, so a fix
 can be cherry-picked onto `develop` for an upstream PR without the fork
 config.
 
@@ -38,12 +39,46 @@ git push origin upstream/my-fix     # then open a PR to streamyfin/streamyfin:de
 ## How builds work
 
 The app is Expo (CNG): `ios/` isn't committed and gets regenerated on every
-build, which rules out Xcode Cloud. Builds run on **EAS Workflows** instead:
+build, which rules out Xcode Cloud. Builds run on **EAS Workflows** instead.
 
-`.eas/workflows/testflight.yml` triggers on every push to `development`, runs
-the `production` EAS build profile (upstream's bun build steps in
-`.eas/build/ios-production.yml`), then uploads the build to TestFlight with
-the commit message as "What to Test". The build number auto-increments on EAS.
+`.eas/workflows/testflight.yml` runs on every push to `development` and
+picks one of two paths, based on the iOS native fingerprint
+(`fingerprint.config.js`):
+
+- **JS-only change** (an EAS build with the same fingerprint already exists):
+  publishes an over-the-air update to the `production` channel. It's ready a
+  few minutes after the push. **Force-quit and reopen the app** to get it:
+  on launch the app waits up to 5 s for a new update and starts on it.
+  Settings shows the commit it's running.
+- **Native change** (Swift/Kotlin in `modules/`, `targets/`, `plugins/`,
+  native dependencies, app.json native config): full EAS build, then a
+  TestFlight upload with the commit message as "What to Test". The build
+  number auto-increments on EAS.
+
+`runtimeVersion` uses the same fingerprint policy, so an update only ever
+reaches a binary whose native code matches it. A JS update can't crash an
+older binary.
+
+Force a native build anyway:
+`eas workflow:run .eas/workflows/testflight.yml -F full_build=true`.
+
+Native code in this app: the video player controls
+(`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel
+(`modules/hero-carousel`), downloads and the Live Activity. Everything in
+`app/` and `components/` is JS.
+
+### Dependencies note (cloud sessions)
+
+`react-native-track-player` is a GitHub dependency. If the network blocks
+GitHub tarball downloads, `bun install` fails with a 403. Seed bun's cache
+from a git checkout instead:
+
+```sh
+git clone https://github.com/lovegaoshi/react-native-track-player /tmp/rntp
+T=~/.bun/install/cache/@GH@lovegaoshi-react-native-track-player-d371784@@@1
+mkdir -p "$T" && git -C /tmp/rntp archive d371784 | tar -x -C "$T"
+bun install --frozen-lockfile
+```
 
 ## One-time setup
 
@@ -68,15 +103,16 @@ the commit message as "What to Test". The build number auto-increments on EAS.
 5. **TestFlight**: in App Store Connect → TestFlight, create an internal
    group with **automatic distribution** on and add yourself to it.
 6. Smoke test: `eas workflow:run .eas/workflows/testflight.yml`, or push to
-   `development`.
+   `development`. The first run always does a full build (no earlier build to
+   match); later JS-only pushes become updates.
 
 ## Costs and speed
 
 - The EAS free plan includes a small number of iOS builds per month on a
   low-priority queue, which can be slow. For fast iteration the
   Starter/Production plans give priority macOS workers. Check expo.dev/pricing.
-- A full iOS build of this app (MPVKit, static frameworks) takes a while. To
-  avoid spending a build per commit, batch small fixes into one push to
-  `development`.
+- A full iOS build of this app (MPVKit, static frameworks) takes a while, but
+  only native changes need one. JS updates don't count against EAS build
+  quota (EAS Update has its own, generous free tier).
 - GitHub Actions are disabled by default on forks. Leave them off: upstream's
   workflows assume upstream's secrets and runners.

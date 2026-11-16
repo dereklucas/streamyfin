@@ -202,10 +202,12 @@
     },
     "owner": "EXPO_ACCOUNT",
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "fingerprint"
     },
     "updates": {
-      "url": "https://u.expo.dev/EAS_PROJECT_ID"
+      "url": "https://u.expo.dev/EAS_PROJECT_ID",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 5000
     }
   }
 }

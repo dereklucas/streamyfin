@@ -1,18 +1,65 @@
-# Fork-only: every push to `development` builds the iPhone/iPad app on EAS
-# and uploads it to TestFlight. Uses the existing `production` build profile
-# (custom bun build steps in .eas/build/ios-production.yml, remote-managed
-# credentials, remote auto-incremented build number) and the `production`
-# submit profile in eas.json. Requires the repo to be linked to the EAS
-# project (expo.dev → project → GitHub). See FORK.md.
-name: TestFlight
+# Fork-only: every push to `development` ships to my devices.
+#
+# - Native code unchanged (an EAS build with the same iOS fingerprint exists):
+#   publish an over-the-air JS update to the `production` channel. Lands in a
+#   few minutes; force-quit and reopen the app to get it.
+# - Native code changed (or no build yet): full EAS build with the
+#   `production` profile (custom bun steps in .eas/build/ios-production.yml,
+#   remote credentials, remote auto-incremented build number), then upload to
+#   TestFlight with the commit message as "What to Test".
+#
+# The fingerprint comes from fingerprint.config.js (upstream's, tuned for its
+# own repack logic), and the app's runtimeVersion uses the same fingerprint, so
+# an update can only ever reach a binary whose native code matches it.
+#
+# Run manually with `eas workflow:run .eas/workflows/testflight.yml`; pass
+# `-F full_build=true` to force a native build. See FORK.md.
+name: Ship development
 
 on:
   push:
     branches: ["development"]
+  workflow_dispatch:
+    inputs:
+      full_build:
+        type: boolean
+        default: false
+        description: Build and upload to TestFlight even if native code is unchanged
 
 jobs:
+  fingerprint:
+    name: Native fingerprint
+    type: fingerprint
+    environment: production
+
+  get_build:
+    name: Find matching build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      # A build still running from an earlier push counts: publish onto it
+      # instead of starting a second identical build.
+      wait_for_in_progress: true
+
+  publish_update:
+    name: Publish JS update
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id && !inputs.full_build }}
+    type: update
+    environment: production
+    params:
+      platform: ios
+      channel: production
+      # No Sentry org for the fork.
+      upload_sentry_sourcemaps: false
+
   build_ios:
     name: Build iOS
+    needs: [get_build]
+    if: ${{ !needs.get_build.outputs.build_id || inputs.full_build }}
     type: build
     params:
       platform: ios

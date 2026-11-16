@@ -322,3 +322,11 @@ import { apiAtom } from "@/utils/atoms/api";
 - Some features are off on TV, notifications and Chromecast among them.
 - The rest of the TV rules, covering focus, modals, typography and lists, live in
   [docs/conventions/tv.md](docs/conventions/tv.md). Read it before touching TV code.
+
+## Fork (dereklucas/streamyfin)
+
+This checkout is a personal fork. Read [FORK.md](FORK.md) before committing:
+work on `fix/*` branches cut from `development` (a merge to `development`
+ships to TestFlight). Never mix fixes into the `chore(fork)` commits, so
+fixes can be cherry-picked onto upstream `develop` for PRs. Primary target:
+iPad Pro layout. Check both 11" and 13" sizes, in portrait and landscape.

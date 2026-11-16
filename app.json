@@ -34,9 +34,8 @@
       "entitlements": {
         "com.apple.developer.networking.wifi-info": true
       },
-      "bundleIdentifier": "com.fredrikburmester.streamyfin",
-      "icon": "./assets/images/icon-ios-liquid-glass.icon",
-      "appleTeamId": "MWD5K362T8"
+      "bundleIdentifier": "science.vgood.streamyfin",
+      "icon": "./assets/images/icon-ios-liquid-glass.icon"
     },
     "android": {
       "adaptiveIcon": {
@@ -198,15 +197,15 @@
         "origin": false
       },
       "eas": {
-        "projectId": "e79219d1-797f-4fbe-9fa1-cfd360690a68"
+        "projectId": "EAS_PROJECT_ID"
       }
     },
-    "owner": "streamyfin",
+    "owner": "EXPO_ACCOUNT",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/e79219d1-797f-4fbe-9fa1-cfd360690a68"
+      "url": "https://u.expo.dev/EAS_PROJECT_ID"
     }
   }
 }

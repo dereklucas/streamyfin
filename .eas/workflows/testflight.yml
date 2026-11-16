@@ -1,0 +1,29 @@
+# Fork-only: every push to `development` builds the iPhone/iPad app on EAS
+# and uploads it to TestFlight. Uses the existing `production` build profile
+# (custom bun build steps in .eas/build/ios-production.yml, remote-managed
+# credentials, remote auto-incremented build number) and the `production`
+# submit profile in eas.json. Requires the repo to be linked to the EAS
+# project (expo.dev → project → GitHub). See FORK.md.
+name: TestFlight
+
+on:
+  push:
+    branches: ["development"]
+
+jobs:
+  build_ios:
+    name: Build iOS
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  testflight:
+    name: Upload to TestFlight
+    needs: [build_ios]
+    type: testflight
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+      # Shows up as "What to Test" in TestFlight, so each build says what it has.
+      changelog: "${{ github.commit_message || 'development build' }}"

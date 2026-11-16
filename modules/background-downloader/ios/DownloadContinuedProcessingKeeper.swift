@@ -22,8 +22,11 @@
   final class DownloadContinuedProcessingKeeper {
     static let shared = DownloadContinuedProcessingKeeper()
 
-    /// Must be declared in BGTaskSchedulerPermittedIdentifiers (see withDownloadLiveActivity.ts).
-    private static let taskIdentifier = "com.fredrikburmester.streamyfin.downloads"
+    /// Must be declared in BGTaskSchedulerPermittedIdentifiers (see withDownloadLiveActivity.ts),
+    /// which derives it from the bundle id the same way, so builds under another bundle id
+    /// (forks, self-signed builds) register the identifier their Info.plist permits.
+    private static let taskIdentifier =
+      "\(Bundle.main.bundleIdentifier ?? "com.fredrikburmester.streamyfin").downloads"
 
     private let queue = DispatchQueue(
       label: "com.fredrikburmester.streamyfin.downloadkeeper"

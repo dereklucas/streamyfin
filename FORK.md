@@ -84,11 +84,7 @@ bun install --frozen-lockfile
 
 1. **Expo**: done. Project `@dereklucas/streamyfin`
    (`d39c717a-c991-493f-a43a-822de189d6f8`) is in `app.json`.
-2. **App Store Connect**: create the app under bundle ID
-   `science.vgood.streamyfin` (step 3 registers the bundle ID, so do that
-   first). Its numeric Apple ID (App Information → Apple ID) goes in
-   `eas.json` → `submit.production.ios.ascAppId`. The Apple team is read
-   from the EAS credentials.
+2. **App Store Connect**: done. App `6835696183` is in `eas.json`.
 3. **Credentials**: run `eas credentials -p ios` and pick the `production`
    profile. Let EAS create the distribution cert and provisioning profiles,
    including the `StreamyfinDownloadActivity` Live Activity extension and the

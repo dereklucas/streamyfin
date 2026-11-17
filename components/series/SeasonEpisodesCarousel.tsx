@@ -85,6 +85,7 @@ export const SeasonEpisodesCarousel: React.FC<Props> = ({
   return (
     <View style={[containerStyle, style]}>
       <CardRow
+        enableActionSheet
         kind='wide'
         items={episodes ?? []}
         slots={slots}

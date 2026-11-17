@@ -19,6 +19,8 @@ export type {
   HeroCarouselFilterToggleEvent,
   HeroCarouselItem,
   HeroCarouselItemPressEvent,
+  HeroCarouselMenuAction,
+  HeroCarouselMenuActionEvent,
   HeroCarouselViewProps,
 } from "./hero-carousel";
 export { HeroCarouselView, isHeroCarouselAvailable } from "./hero-carousel";

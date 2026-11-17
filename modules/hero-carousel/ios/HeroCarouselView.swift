@@ -10,6 +10,8 @@ struct HeroCarouselRootView: View {
   @ObservedObject var state: HeroCarouselState
   let onItemPress: (String) -> Void
   let onFilterToggle: (String) -> Void
+  /// A card's context menu action: the item id, then the action key.
+  let onMenuAction: (String, String) -> Void
 
   var body: some View {
     #if os(iOS)
@@ -22,13 +24,15 @@ struct HeroCarouselRootView: View {
         PagedHeroCarousel(
           items: state.items,
           headers: state.imageHeaders,
-          onItemPress: onItemPress
+          onItemPress: onItemPress,
+          onMenuAction: onMenuAction
         )
       } else {
         LegacyHeroCarousel(
           items: state.items,
           headers: state.imageHeaders,
-          onItemPress: onItemPress
+          onItemPress: onItemPress,
+          onMenuAction: onMenuAction
         )
       }
     }
@@ -215,6 +219,7 @@ private struct PagedHeroCarousel: View {
   let items: [HeroItem]
   let headers: [String: String]
   let onItemPress: (String) -> Void
+  let onMenuAction: (String, String) -> Void
 
   @State private var scrolledID: String?
   /// The scroll starts at offset 0, which is the leading wrap clone, and
@@ -247,6 +252,9 @@ private struct PagedHeroCarousel: View {
                 headers: headers,
                 onPress: { onItemPress(slide.item.id) }
               )
+              .heroItemMenu(slide.item.menuActions) { key in
+                onMenuAction(slide.item.id, key)
+              }
               // contentMargins already insets the container, so the full
               // relative width is the card width; the snapped card sits
               // centered with a neighbor sliver on each side.
@@ -345,6 +353,7 @@ private struct LegacyHeroCarousel: View {
   let items: [HeroItem]
   let headers: [String: String]
   let onItemPress: (String) -> Void
+  let onMenuAction: (String, String) -> Void
 
   @State private var selection: Int
 
@@ -353,11 +362,13 @@ private struct LegacyHeroCarousel: View {
   init(
     items: [HeroItem],
     headers: [String: String],
-    onItemPress: @escaping (String) -> Void
+    onItemPress: @escaping (String) -> Void,
+    onMenuAction: @escaping (String, String) -> Void
   ) {
     self.items = items
     self.headers = headers
     self.onItemPress = onItemPress
+    self.onMenuAction = onMenuAction
     // Slide 0 is the leading wrap clone whenever there is more than one item.
     _selection = State(initialValue: items.count > 1 ? 1 : 0)
   }
@@ -373,6 +384,9 @@ private struct LegacyHeroCarousel: View {
               headers: headers,
               onPress: { onItemPress(slide.item.id) }
             )
+            .heroItemMenu(slide.item.menuActions) { key in
+              onMenuAction(slide.item.id, key)
+            }
             .padding(.horizontal, HeroLayout.pageMargin)
             .tag(index)
           }

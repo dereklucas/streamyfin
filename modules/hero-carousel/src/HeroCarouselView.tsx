@@ -13,6 +13,7 @@ type NativeProps = {
   payload: string;
   onItemPress?: HeroCarouselViewProps["onItemPress"];
   onFilterToggle?: HeroCarouselViewProps["onFilterToggle"];
+  onMenuAction?: HeroCarouselViewProps["onMenuAction"];
   style?: HeroCarouselViewProps["style"];
 };
 
@@ -49,6 +50,7 @@ const HeroCarouselView: React.FC<HeroCarouselViewProps> = ({
   maxFontScale,
   onItemPress,
   onFilterToggle,
+  onMenuAction,
   style,
 }) => {
   const payload = React.useMemo(
@@ -70,6 +72,7 @@ const HeroCarouselView: React.FC<HeroCarouselViewProps> = ({
       payload={payload}
       onItemPress={onItemPress}
       onFilterToggle={onFilterToggle}
+      onMenuAction={onMenuAction}
       style={style}
     />
   );

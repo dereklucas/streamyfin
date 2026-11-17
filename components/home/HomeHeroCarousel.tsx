@@ -10,14 +10,17 @@ import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useWindowDimensions } from "react-native";
+import { hasNativeContextMenu } from "@/components/common/NativeContextMenu";
 import useRouter from "@/hooks/useAppRouter";
 import { useHaptic } from "@/hooks/useHaptic";
 import { useHeadersForUrl } from "@/hooks/useHeadersForUrl";
+import { useItemMenus } from "@/hooks/useItemMenus";
 import {
   type HeroCarouselFilterSection,
   type HeroCarouselFilterToggleEvent,
   type HeroCarouselItem,
   type HeroCarouselItemPressEvent,
+  type HeroCarouselMenuActionEvent,
   HeroCarouselView,
   isHeroCarouselAvailable,
 } from "@/modules";
@@ -540,6 +543,14 @@ export const HomeHeroCarousel = () => {
     staleTime: 60 * 1000,
   });
 
+  // The cards' long-press menus, the same as every poster's.
+  const entryItems = useMemo(() => entries?.map(({ item }) => item), [entries]);
+  const {
+    menuActionsFor,
+    handleMenuAction,
+    runner: menuActionRunner,
+  } = useItemMenus(entryItems);
+
   const items = useMemo<HeroCarouselItem[]>(() => {
     if (!api || !entries) return [];
     return entries.map(({ item, section }) => ({
@@ -562,8 +573,24 @@ export const HomeHeroCarousel = () => {
       progress: item.UserData?.PlayedPercentage
         ? item.UserData.PlayedPercentage / 100
         : null,
+      menuActions: hasNativeContextMenu()
+        ? (menuActionsFor(item.Id!) ?? [])
+        : [],
     }));
-  }, [api, entries, t, metrics.backdropWidth, metrics.backdropHeight]);
+  }, [
+    api,
+    entries,
+    t,
+    metrics.backdropWidth,
+    metrics.backdropHeight,
+    menuActionsFor,
+  ]);
+
+  const onMenuAction = useCallback(
+    (event: { nativeEvent: HeroCarouselMenuActionEvent }) =>
+      handleMenuAction(event.nativeEvent.id, event.nativeEvent.key),
+    [handleMenuAction],
+  );
 
   // An admin-locked setting is dropped by updateSettings, so offering its row
   // would just be a dead tap. Omit those rows the way the settings screen
@@ -661,19 +688,23 @@ export const HomeHeroCarousel = () => {
   if (items.length === 0 && !hasActiveFilters) return null;
 
   return (
-    <HeroCarouselView
-      items={items}
-      imageHeaders={imageHeaders}
-      filterSections={filterSections}
-      filterLabel={t("home.hero.filter")}
-      maxFontScale={heroCardMaxFontScale(windowWidth)}
-      onItemPress={handleItemPress}
-      onFilterToggle={handleFilterToggle}
-      style={{
-        width: "100%",
-        height: metrics.cardHeight + DOTS_AREA,
-        marginTop: 8,
-      }}
-    />
+    <>
+      <HeroCarouselView
+        items={items}
+        imageHeaders={imageHeaders}
+        filterSections={filterSections}
+        filterLabel={t("home.hero.filter")}
+        maxFontScale={heroCardMaxFontScale(windowWidth)}
+        onItemPress={handleItemPress}
+        onFilterToggle={handleFilterToggle}
+        onMenuAction={onMenuAction}
+        style={{
+          width: "100%",
+          height: metrics.cardHeight + DOTS_AREA,
+          marginTop: 8,
+        }}
+      />
+      {menuActionRunner}
+    </>
   );
 };

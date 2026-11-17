@@ -1593,5 +1593,9 @@
     "emergency_launch": "An update failed to launch; running the built-in bundle",
     "share_diagnostics": "Share diagnostics",
     "preparing": "Preparing…"
+  },
+  "home_screen_actions": {
+    "minutes_left": "{{count}} min left",
+    "season_episode": "S{{season}} E{{episode}}"
   }
 }

@@ -16,6 +16,7 @@ import * as BackgroundTask from "expo-background-task";
 import { Image } from "expo-image";
 import { Platform } from "react-native";
 import { GlobalModal } from "@/components/GlobalModal";
+import { HomeScreenQuickActions } from "@/components/HomeScreenQuickActions";
 import { OfflineProgressSync } from "@/components/OfflineProgressSync";
 import { PendingAccountSaveModal } from "@/components/PendingAccountSaveModal";
 import { SeerrAutoLogin } from "@/components/seerr/SeerrAutoLogin";
@@ -348,6 +349,7 @@ function Layout() {
                                       {JellyfinCastStopReporter && (
                                         <JellyfinCastStopReporter />
                                       )}
+                                      <HomeScreenQuickActions />
                                       <Stack>
                                         <Stack.Screen
                                           name='(auth)/(tabs)'

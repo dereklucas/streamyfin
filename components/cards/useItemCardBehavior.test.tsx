@@ -6,6 +6,10 @@ import {
 } from "@/test-utils/actionSheet";
 import { useItemCardBehavior } from "./useItemCardBehavior";
 
+// The sheet's Shuffle starts the player, which is not what is under test.
+jest.mock("@/hooks/useShuffleSeries", () => ({
+  useShuffleSeries: () => async () => {},
+}));
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
   return { apiAtom: atom({ basePath: "http://server" }) };

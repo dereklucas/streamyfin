@@ -82,16 +82,13 @@ bun install --frozen-lockfile
 
 ## One-time setup
 
-1. **Expo**: create a free account at expo.dev, then on a Mac:
-   `npm i -g eas-cli && eas login`. In a checkout of `development`, run
-   `eas init`. It creates the project and prints the project ID and
-   account name. Replace `EAS_PROJECT_ID` (twice) and `EXPO_ACCOUNT` in
-   `app.json` with those values. (`eas init` can't write them itself because
-   the repo uses a dynamic `app.config.ts`.)
+1. **Expo**: done. Project `@dereklucas/streamyfin`
+   (`d39c717a-c991-493f-a43a-822de189d6f8`) is in `app.json`.
 2. **App Store Connect**: create the app under bundle ID
-   `science.vgood.streamyfin`. Its numeric Apple ID (App Information →
-   Apple ID) goes in `eas.json` → `submit.production.ios.ascAppId`. Your
-   Team ID (developer.apple.com → Membership) goes in `appleTeamId` next to it.
+   `science.vgood.streamyfin` (step 3 registers the bundle ID, so do that
+   first). Its numeric Apple ID (App Information → Apple ID) goes in
+   `eas.json` → `submit.production.ios.ascAppId`. The Apple team is read
+   from the EAS credentials.
 3. **Credentials**: run `eas credentials -p ios` and pick the `production`
    profile. Let EAS create the distribution cert and provisioning profiles,
    including the `StreamyfinDownloadActivity` Live Activity extension and the

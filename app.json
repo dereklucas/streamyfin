@@ -102,7 +102,8 @@
             "uploadNativeSymbols": false,
             "autoUploadNativeSymbols": false,
             "includeNativeSources": false
-          }
+          },
+          "disableAutoUpload": true
         }
       ],
       "./plugins/withExcludeMedia3Dash.ts",
@@ -187,6 +188,21 @@
           "podName": "MPVKit",
           "podspecUrl": "https://raw.githubusercontent.com/streamyfin/MPVKit/0.41.0-av5/MPVKit.podspec"
         }
+      ],
+      "expo-background-task",
+      "./plugins/withCastStopReceiverOnEnd.ts",
+      [
+        "react-native-google-cast",
+        {
+          "useDefaultExpandedMediaControls": true,
+          "receiverAppId": "F007D354"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Streamyfin to access the camera to scan QR codes for TV login."
+        }
       ]
     ],
     "experiments": {
@@ -197,15 +213,15 @@
         "origin": false
       },
       "eas": {
-        "projectId": "EAS_PROJECT_ID"
+        "projectId": "d39c717a-c991-493f-a43a-822de189d6f8"
       }
     },
-    "owner": "EXPO_ACCOUNT",
+    "owner": "dereklucas",
     "runtimeVersion": {
       "policy": "fingerprint"
     },
     "updates": {
-      "url": "https://u.expo.dev/EAS_PROJECT_ID",
+      "url": "https://u.expo.dev/d39c717a-c991-493f-a43a-822de189d6f8",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 5000
     }

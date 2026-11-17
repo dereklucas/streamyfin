@@ -1,4 +1,5 @@
 import { Colors } from "@/constants/Colors";
+import { SEASON_ICON_SIZE } from "@/constants/Values";
 import { HeaderIcon } from "./HeaderIcon";
 
 /**
@@ -12,8 +13,6 @@ export const SingleItemDownloadedIcon = () => (
 );
 
 /** The smaller row glyph beside the season selector, for both states. */
-const SEASON_ICON_SIZE = 18;
-
 export const SeasonDownloadIcon = () => (
   <HeaderIcon name='downloads' size={SEASON_ICON_SIZE} />
 );

@@ -1575,6 +1575,11 @@
     "follow_branch_description": "Loads that branch's latest update. Only branches without native changes can run on this build.",
     "no_compatible_update": "{{branch}} has no update this build can run",
     "branches_failed": "Could not load branches",
-    "update_failed": "Update check failed"
+    "update_failed": "Update check failed",
+    "channel": "Update channel",
+    "no_channel": "None (updates can't reach this build)",
+    "emergency_launch": "An update failed to launch; running the built-in bundle",
+    "share_diagnostics": "Share diagnostics",
+    "preparing": "Preparing…"
   }
 }

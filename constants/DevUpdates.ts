@@ -20,3 +20,9 @@ export const PREVIEW_BRANCH_PREFIXES: readonly string[] = ["fix/", "feat/"];
 
 /** Where the followed branch is remembered, in MMKV. */
 export const FOLLOWED_BRANCH_STORAGE_KEY = "devUpdates.followedBranch";
+
+/** How far back the shared diagnostics read expo-updates' own log. */
+export const DIAGNOSTICS_UPDATE_LOG_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** How many of the newest app log entries the shared diagnostics include. */
+export const DIAGNOSTICS_MAX_APP_LOGS = 300;

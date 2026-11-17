@@ -11,7 +11,7 @@ type Props = {
  * Presents the item action sheet for as long as it is mounted, then calls
  * `onClose`. The sheet's hooks are bound to a single item, so a caller that
  * only knows which item was long-pressed at runtime — a native list handing
- * back an id — mounts this with `key={item.Id}` instead of rendering a
+ * back an id — mounts this, keyed per long press, instead of rendering a
  * TouchableItemRouter per row.
  */
 export const ItemActionSheetHost: React.FC<Props> = ({ item, onClose }) => {
@@ -19,20 +19,28 @@ export const ItemActionSheetHost: React.FC<Props> = ({ item, onClose }) => {
   // Present once per mount: the callback identity changes as the item's
   // favorite/played state settles, which must not re-open the sheet.
   const presented = useRef(false);
+  // Only unmounting may drop the close. A re-run of the effect below once
+  // marked the open sheet cancelled, so closing it never called onClose and
+  // the host stayed mounted: the next long press on the same item did nothing.
+  const mounted = useRef(true);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (presented.current) return;
     presented.current = true;
 
-    let cancelled = false;
     showActionSheet().finally(() => {
-      if (!cancelled) onClose();
+      if (mounted.current) onCloseRef.current();
     });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [showActionSheet, onClose]);
+  }, [showActionSheet]);
 
   return null;
 };

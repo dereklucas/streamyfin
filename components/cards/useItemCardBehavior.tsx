@@ -57,9 +57,14 @@ export function useItemCardBehavior({
   const api = useAtomValue(apiAtom);
   const router = useRouter();
   const segments = useSegments();
-  const [actionSheetItem, setActionSheetItem] = useState<BaseItemDto | null>(
-    null,
-  );
+  // Each long press is its own request, so a press always mounts a new host.
+  // Keyed by the item alone, a host that missed its close (ItemActionSheetHost
+  // once did, when the item's favorite state settled with the sheet up) stayed
+  // mounted, and a second long press on the same poster showed nothing.
+  const [actionSheetRequest, setActionSheetRequest] = useState<{
+    item: BaseItemDto;
+    id: number;
+  } | null>(null);
 
   const from = (segments as string[])[2] || "(home)";
 
@@ -135,12 +140,12 @@ export function useItemCardBehavior({
         return;
       }
 
-      setActionSheetItem(item);
+      setActionSheetRequest((prev) => ({ item, id: (prev?.id ?? 0) + 1 }));
     },
     [onLongPressId, onLongPressItem],
   );
 
-  const closeActionSheet = useCallback(() => setActionSheetItem(null), []);
+  const closeActionSheet = useCallback(() => setActionSheetRequest(null), []);
 
   // Only media items have a played/favorite state to act on — but a screen
   // that handles the long press itself always gets it.
@@ -153,10 +158,10 @@ export function useItemCardBehavior({
     handlePress,
     handleLongPress: allowLongPress ? handleLongPress : undefined,
     /** Mount alongside the cards; renders nothing until a long press. */
-    actionSheet: actionSheetItem ? (
+    actionSheet: actionSheetRequest ? (
       <ItemActionSheetHost
-        key={actionSheetItem.Id}
-        item={actionSheetItem}
+        key={actionSheetRequest.id}
+        item={actionSheetRequest.item}
         onClose={closeActionSheet}
       />
     ) : null,

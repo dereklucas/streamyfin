@@ -33,6 +33,11 @@ build:
         working_directory: ./ios
         command: pod install
 
+    # Writes the update channel (eas.json) and runtime version into the app's
+    # Expo.plist, as EAS's default iOS build does after pod install. Without
+    # it the build asks for updates under no channel and is never served one.
+    - eas/configure_eas_update
+
     - eas/configure_ios_credentials
     - eas/configure_ios_version
 

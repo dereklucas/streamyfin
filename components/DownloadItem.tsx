@@ -8,19 +8,19 @@ import type {
   BaseItemDto,
   MediaSourceInfo,
 } from "@jellyfin/sdk/lib/generated-client/models";
-import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api";
 import { type Href } from "expo-router";
 import { t } from "i18next";
 import { useAtom } from "jotai";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform, Switch, View, type ViewProps } from "react-native";
+import { Platform, Switch, View, type ViewProps } from "react-native";
 import { toast } from "sonner-native";
 import { HEADER_ICON_SIZE } from "@/components/common/HeaderButton";
 import { HeaderIcon } from "@/components/common/HeaderIcon";
 import { Colors } from "@/constants/Colors";
 import useRouter from "@/hooks/useAppRouter";
 import useDefaultPlaySettings from "@/hooks/useDefaultPlaySettings";
+import { useStartDownloads } from "@/hooks/useStartDownloads";
 import { useDownload } from "@/providers/DownloadProvider";
 import { lacksMediaSource } from "@/providers/Downloads/downloadRequest";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
@@ -28,8 +28,7 @@ import { queueAtom } from "@/utils/atoms/queue";
 import { type Settings, useSettings } from "@/utils/atoms/settings";
 import { toDownloadBitrate } from "@/utils/bitrate";
 import { getDefaultPlaySettings } from "@/utils/jellyfin/getDefaultPlaySettings";
-import { getDownloadStreamUrl } from "@/utils/jellyfin/media/getStreamUrl";
-import { logAndCaptureError, writeToLog } from "@/utils/log";
+import { writeToLog } from "@/utils/log";
 import { SUBTITLES_OFF } from "@/utils/subtitles/subtitleIndex";
 import { AudioTrackSelector } from "./AudioTrackSelector";
 import { type Bitrate, BitrateSelector } from "./BitrateSelector";
@@ -129,7 +128,8 @@ export const DownloadItems: React.FC<DownloadProps> = ({
   const router = useRouter();
   const [downloadUnwatchedOnly, setDownloadUnwatchedOnly] = useState(false);
 
-  const { processes, startBackgroundDownload, downloadedItems } = useDownload();
+  const { processes, downloadedItems } = useDownload();
+  const startDownloads = useStartDownloads();
   const downloadedFiles = downloadedItems;
 
   const [selectedOptions, setSelectedOptions] = useState<
@@ -278,108 +278,27 @@ export const DownloadItems: React.FC<DownloadProps> = ({
         toast.error(t("home.downloads.toasts.no_media_source_to_download"));
         return;
       }
-      const downloadDetailsPromises = items.map(async (item) => {
-        // Ensure the snapshot we store offline carries the Chapters array.
-        // Page-level fetches sometimes use a fields filter that omits it; the
-        // offline player would then render no chapter ticks / list.
-        let itemForDownload = item;
-        if (!itemForDownload.Chapters && itemForDownload.Id) {
-          try {
-            const enriched = await getLibraryApi(api).getItem({
-              itemId: itemForDownload.Id,
-              userId: user.Id!,
-            });
-            if (enriched.data) {
-              itemForDownload = enriched.data;
-            }
-          } catch (e) {
-            console.warn(
-              "[DownloadItem] failed to refresh item for Chapters, falling back to original",
-              e,
-            );
-          }
-        }
-
-        const { mediaSource, audioIndex, subtitleIndex } =
+      // One item takes what was picked in the sheet; several each take
+      // their own default tracks, at the picked quality.
+      await startDownloads(items, {
+        bitrate: selectedOptions?.bitrate || defaultBitrate,
+        tracks:
           itemsNotDownloaded.length > 1
-            ? getDefaultPlaySettings(itemForDownload, settings!)
+            ? undefined
             : {
                 mediaSource: selectedOptions?.mediaSource,
                 audioIndex: selectedOptions?.audioIndex,
                 subtitleIndex: selectedOptions?.subtitleIndex,
-              };
-
-        // Awaited with Promise.all over a season: a throw would abort the batch.
-        const downloadDetails = await getDownloadStreamUrl({
-          api,
-          item: itemForDownload,
-          userId: user.Id!,
-          mediaSourceId: mediaSource?.Id,
-          audioStreamIndex: audioIndex ?? -1,
-          subtitleStreamIndex: subtitleIndex ?? -1,
-          maxStreamingBitrate: (selectedOptions?.bitrate || defaultBitrate)
-            .value,
-          audioMode: settings?.audioTranscodeMode,
-        }).catch((error) => {
-          logAndCaptureError("Getting download stream URL failed", error, {
-            itemType: itemForDownload.Type,
-          });
-          return null;
-        });
-
-        return {
-          url: downloadDetails?.url,
-          item: itemForDownload,
-          mediaSource: downloadDetails?.mediaSource,
-        };
+              },
       });
-
-      const downloadDetails = await Promise.all(downloadDetailsPromises);
-      for (const { url, item, mediaSource } of downloadDetails) {
-        if (!url) {
-          Alert.alert(
-            t("home.downloads.something_went_wrong"),
-            t("home.downloads.could_not_get_stream_url_from_jellyfin"),
-          );
-          continue;
-        }
-        if (!mediaSource) {
-          console.error(`Could not get download URL for ${item.Name}`);
-          toast.error(
-            t("home.downloads.toasts.could_not_get_download_url_for_item", {
-              itemName: item.Name,
-            }),
-          );
-          continue;
-        }
-        // Get the audio/subtitle indices that were used for this download
-        const downloadAudioIndex =
-          itemsNotDownloaded.length > 1
-            ? getDefaultPlaySettings(item, settings!).audioIndex
-            : selectedOptions?.audioIndex;
-        const downloadSubtitleIndex =
-          itemsNotDownloaded.length > 1
-            ? getDefaultPlaySettings(item, settings!).subtitleIndex
-            : selectedOptions?.subtitleIndex;
-
-        await startBackgroundDownload(
-          url,
-          item,
-          mediaSource,
-          selectedOptions?.bitrate || defaultBitrate,
-          downloadAudioIndex,
-          downloadSubtitleIndex,
-        );
-      }
     },
     [
       api,
       user?.Id,
       itemsNotDownloaded,
       selectedOptions,
-      settings,
       defaultBitrate,
-      startBackgroundDownload,
+      startDownloads,
     ],
   );
 

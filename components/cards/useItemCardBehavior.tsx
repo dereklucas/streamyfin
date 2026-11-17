@@ -15,7 +15,8 @@ import {
 } from "@/components/common/TouchableItemRouter";
 import useRouter from "@/hooks/useAppRouter";
 import { favoritesAtom } from "@/hooks/useFavorite";
-import { apiAtom } from "@/providers/JellyfinProvider";
+import { useDownload } from "@/providers/DownloadProvider";
+import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
 import { buildItemCards, type CardData, type CardKind } from "./CardData";
@@ -69,8 +70,15 @@ export function useItemCardBehavior({
   const api = useAtomValue(apiAtom);
   const { t } = useTranslation();
   const isOffline = useOfflineMode();
-  // One subscription per row for the favorite labels, not one per poster.
+  // One subscription per row for the menus' state, not one per poster.
   const favorites = useAtomValue(favoritesAtom);
+  const user = useAtomValue(userAtom);
+  const canDownload = Boolean(user?.Policy?.EnableContentDownloading);
+  const { downloadedItems } = useDownload();
+  const downloadedIds = useMemo(
+    () => new Set((downloadedItems ?? []).map((d) => d.item.Id)),
+    [downloadedItems],
+  );
   const router = useRouter();
   const segments = useSegments();
   // Each long press is its own request, so a press always mounts a new host.
@@ -180,9 +188,11 @@ export function useItemCardBehavior({
         t,
         isOffline,
         isFavorite: Boolean(favorites[id] ?? item.UserData?.IsFavorite),
+        isDownloaded: downloadedIds.has(id),
+        canDownload,
       });
     },
-    [t, isOffline, favorites],
+    [t, isOffline, favorites, downloadedIds, canDownload],
   );
 
   // Each choice is its own run, so choosing the same action twice runs twice.

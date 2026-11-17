@@ -1,11 +1,14 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useActionSheet } from "@/hooks/useActionSheet";
 import { useFavorite } from "@/hooks/useFavorite";
 import { useMarkAsPlayed } from "@/hooks/useMarkAsPlayed";
+import { useMenuDownload } from "@/hooks/useMenuDownload";
 import { useShuffleSeries } from "@/hooks/useShuffleSeries";
 import { useDownload } from "@/providers/DownloadProvider";
+import { userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
 
@@ -17,8 +20,14 @@ export function useItemActions(item: BaseItemDto) {
   const markAsPlayedStatus = useMarkAsPlayed([item]);
   const { isFavorite, toggleFavorite } = useFavorite(item);
   const isOffline = useOfflineMode();
-  const { deleteFile } = useDownload();
+  const { deleteFile, downloadedItems } = useDownload();
   const shuffleSeries = useShuffleSeries();
+  const menuDownload = useMenuDownload();
+  const user = useAtomValue(userAtom);
+  const isDownloaded = Boolean(
+    item.Id && downloadedItems?.some((d) => d.item.Id === item.Id),
+  );
+  const canDownload = Boolean(user?.Policy?.EnableContentDownloading);
 
   const run = useCallback(
     async (key: ItemActionKey): Promise<void> => {
@@ -35,6 +44,9 @@ export function useItemActions(item: BaseItemDto) {
         case "favorite":
           toggleFavorite();
           return;
+        case "download":
+          await menuDownload(item);
+          return;
         case "delete":
           if (item.Id) deleteFile(item.Id);
           return;
@@ -46,11 +58,18 @@ export function useItemActions(item: BaseItemDto) {
       shuffleSeries,
       markAsPlayedStatus,
       toggleFavorite,
+      menuDownload,
       deleteFile,
     ],
   );
 
-  return { run, isFavorite: Boolean(isFavorite), isOffline };
+  return {
+    run,
+    isFavorite: Boolean(isFavorite),
+    isOffline,
+    isDownloaded,
+    canDownload,
+  };
 }
 
 /**
@@ -61,11 +80,19 @@ export function useItemActions(item: BaseItemDto) {
 export function useItemLongPress(item: BaseItemDto) {
   const { t } = useTranslation();
   const { showActionSheetWithOptions } = useActionSheet();
-  const { run, isFavorite, isOffline } = useItemActions(item);
+  const { run, isFavorite, isOffline, isDownloaded, canDownload } =
+    useItemActions(item);
 
   const menuActions = useMemo(
-    () => itemMenuActions(item, { t, isOffline, isFavorite }),
-    [item, t, isOffline, isFavorite],
+    () =>
+      itemMenuActions(item, {
+        t,
+        isOffline,
+        isFavorite,
+        isDownloaded,
+        canDownload,
+      }),
+    [item, t, isOffline, isFavorite, isDownloaded, canDownload],
   );
 
   const showActionSheet = useCallback((): Promise<void> => {

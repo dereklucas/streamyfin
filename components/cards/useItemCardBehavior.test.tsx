@@ -13,7 +13,10 @@ jest.mock("@/hooks/useShuffleSeries", () => ({
 }));
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
-  return { apiAtom: atom({ basePath: "http://server" }) };
+  return {
+    apiAtom: atom({ basePath: "http://server" }),
+    userAtom: atom(null),
+  };
 });
 jest.mock("expo-router", () => ({ useSegments: () => [] }));
 // One router object, as the real hook returns, or the handlers' deps change.
@@ -34,7 +37,7 @@ jest.mock("@/hooks/useFavorite", () => ({
   useFavorite: () => ({ isFavorite: false, toggleFavorite: () => {} }),
 }));
 jest.mock("@/providers/DownloadProvider", () => ({
-  useDownload: () => ({ deleteFile: () => {} }),
+  useDownload: () => ({ deleteFile: () => {}, downloadedItems: [] }),
 }));
 jest.mock(
   "@/providers/OfflineModeProvider",
@@ -112,7 +115,6 @@ describe("useItemCardBehavior long press, iPhone and iPad", () => {
     expect(longPress).toBeUndefined();
     expect(menuActionsFor?.(MOVIE.Id!)?.map((a) => a.key)).toEqual([
       "played",
-      "unplayed",
       "favorite",
     ]);
   });

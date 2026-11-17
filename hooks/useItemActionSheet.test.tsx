@@ -23,7 +23,15 @@ jest.mock("@/hooks/useFavorite", () => ({
   useFavorite: () => ({ isFavorite: false, toggleFavorite: () => {} }),
 }));
 jest.mock("@/providers/DownloadProvider", () => ({
-  useDownload: () => ({ deleteFile: () => {} }),
+  useDownload: () => ({ deleteFile: () => {}, downloadedItems: [] }),
+}));
+jest.mock("@/providers/JellyfinProvider", () => {
+  const { atom } = jest.requireActual("jotai");
+  return { apiAtom: atom(null), userAtom: atom(null) };
+});
+// Starting a download is useStartDownloads' and the provider's.
+jest.mock("@/hooks/useMenuDownload", () => ({
+  useMenuDownload: () => async () => {},
 }));
 const mockShuffleSeries = jest.fn(
   async (_item: BaseItemDto, _options?: { isOffline?: boolean }) => {},
@@ -61,16 +69,14 @@ describe("useItemActionSheet", () => {
     "Season",
     "BoxSet",
     "Folder",
-  ])("offers the played actions for a %s", async (type) => {
+  ])("offers marking an unplayed %s played", async (type) => {
     await present(type);
 
     expect(mockShowActionSheet).toHaveBeenCalledTimes(1);
-    expect(mockShowActionSheet.mock.calls[0][0].options).toEqual(
-      expect.arrayContaining([
-        "common.mark_as_played",
-        "common.mark_as_not_played",
-      ]),
-    );
+    const { options } = mockShowActionSheet.mock.calls[0][0];
+    expect(options).toContain("common.mark_as_played");
+    // Only the state it is not in: an unplayed item cannot be marked unplayed.
+    expect(options).not.toContain("common.mark_as_not_played");
   });
 
   test.each<BaseItemKind | undefined>([
@@ -93,9 +99,16 @@ describe("useItemActionSheet", () => {
     expect(mockMarkAsPlayed).toHaveBeenCalledWith(true);
   });
 
-  test("marks a season unplayed through the shared played mutation", async () => {
-    const { closed } = await present("Season");
-    await mockShowActionSheet.mock.calls[0][1](1);
+  // A season the user has watched offers Mark as unplayed in its place.
+  test("marks a played season unplayed through the shared played mutation", async () => {
+    const item: BaseItemDto = {
+      Id: "item-1",
+      Type: "Season",
+      UserData: { Played: true } as BaseItemDto["UserData"],
+    };
+    const { result } = await renderHook(() => useItemActionSheet(item));
+    const closed = result.current();
+    await mockShowActionSheet.mock.calls[0][1](0);
     await closed;
 
     expect(mockMarkAsPlayed).toHaveBeenCalledWith(false);

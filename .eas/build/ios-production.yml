@@ -36,7 +36,15 @@ build:
     # Writes the update channel (eas.json) and runtime version into the app's
     # Expo.plist, as EAS's default iOS build does after pod install. Without
     # it the build asks for updates under no channel and is never served one.
-    - eas/configure_eas_update
+    #
+    # The runtime version is passed in explicitly: it is the fingerprint EAS
+    # CLI computed from the source, the same one the workflow's fingerprint
+    # job and every update use. Resolved here it comes out undefined, and the
+    # fingerprint policy then has Xcode compute one from the prebuilt project,
+    # which matches nothing (build 2 shipped as 941b9b0 for a 7d4d1de source).
+    - eas/configure_eas_update:
+        inputs:
+          runtime_version: ${ eas.job.version.runtimeVersion }
 
     - eas/configure_ios_credentials
     - eas/configure_ios_version

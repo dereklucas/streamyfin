@@ -218,12 +218,12 @@ export const DeveloperScreen: React.FC = () => {
                 title={busy === branch ? t("developer.checking") : branch}
                 disabled={!Updates.isEnabled || busy !== null}
                 onPress={() => follow(branch)}
-                iconAfter={
-                  branch === following ? (
-                    <Ionicons name='checkmark' size={18} color='white' />
-                  ) : undefined
-                }
-              />
+              >
+                {/* As children, the mark sits inside the row's right edge. */}
+                {branch === following ? (
+                  <Ionicons name='checkmark' size={18} color='white' />
+                ) : null}
+              </ListItem>
             ))
           )}
         </ListGroup>

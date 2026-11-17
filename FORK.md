@@ -67,6 +67,22 @@ Native code in this app: the video player controls
 (`modules/hero-carousel`), downloads and the Live Activity. Everything in
 `app/` and `components/` is JS.
 
+### Developer screen and branch previews
+
+More → **Developer** (fork only) shows what's running: the app version
+and build, whether the JS is built in or an update (and which), the commit,
+the branch being followed, and the native fingerprint. From there you can:
+
+- **Check for update now**: fetch and reload into the latest update right
+  away, instead of waiting for the next launch.
+- **Follow a branch**: every push to a `fix/*` or `feat/*` branch publishes
+  an update to a channel named after it (`.eas/workflows/preview-branches.yml`),
+  as long as its native code matches an existing build. Picking the branch
+  switches the app's update channel (`Updates.setUpdateRequestHeadersOverride`)
+  and loads that update. Picking `development` goes back to the build's own
+  channel. A branch with native changes has nothing this build can run, and
+  the app stays where it was.
+
 ### Dependencies note (cloud sessions)
 
 `react-native-track-player` is a GitHub dependency. If the network blocks

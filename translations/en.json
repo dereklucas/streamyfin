@@ -1555,5 +1555,26 @@
     "play_now": "Play now",
     "refresh_group": "Refresh group",
     "close": "Close"
+  },
+  "developer": {
+    "title": "Developer",
+    "running": "Running",
+    "app_version": "App version",
+    "bundle": "JavaScript",
+    "embedded": "Built into the app",
+    "update": "Update {{id}}",
+    "published": "Published",
+    "commit": "Commit",
+    "runtime": "Native fingerprint",
+    "following": "Following",
+    "check_now": "Check for update now",
+    "checking": "Checking…",
+    "up_to_date": "Already on the latest update",
+    "updates_disabled": "Updates are off in this build",
+    "follow_branch": "Follow a branch",
+    "follow_branch_description": "Loads that branch's latest update. Only branches without native changes can run on this build.",
+    "no_compatible_update": "{{branch}} has no update this build can run",
+    "branches_failed": "Could not load branches",
+    "update_failed": "Update check failed"
   }
 }

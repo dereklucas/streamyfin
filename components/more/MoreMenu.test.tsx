@@ -67,6 +67,7 @@ describe("More menu, phone", () => {
       ["watchlists.title", "/(auth)/(tabs)/(more)/watchlists"],
       ["home.sessions.title", "/(auth)/(tabs)/(more)/sessions"],
       ["tabs.settings", "/(auth)/(tabs)/(more)/settings"],
+      ["developer.title", "/(auth)/(tabs)/(more)/developer"],
     ]) {
       await fireEvent.press(screen.getByText(label));
       expect(mockPush).toHaveBeenLastCalledWith(href);

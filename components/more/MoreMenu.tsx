@@ -69,6 +69,13 @@ export const MoreMenu: React.FC = () => {
             showArrow
             onPress={() => router.push("/(auth)/(tabs)/(more)/settings")}
           />
+          {/* Fork only: which update is running, and which branch to follow. */}
+          <ListItem
+            icon='construct'
+            title={t("developer.title")}
+            showArrow
+            onPress={() => router.push("/(auth)/(tabs)/(more)/developer")}
+          />
         </ListGroup>
       </View>
     </ScrollView>

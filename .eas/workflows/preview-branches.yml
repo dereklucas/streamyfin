@@ -1,0 +1,49 @@
+# Fork-only: every push to a fix/* or feat/* branch publishes a JS update to
+# an update channel named after the git branch, so the app can follow it from
+# More → Developer without a merge to `development`.
+#
+# Only when the branch's native code matches an existing production build
+# (same iOS fingerprint): an update with native changes could not run on any
+# installed build, and building one per work branch would burn build quota.
+# Merging to `development` (testflight.yml) is what ships native changes.
+name: Preview branch updates
+
+on:
+  push:
+    branches: ["fix/**", "feat/**"]
+
+jobs:
+  fingerprint:
+    name: Native fingerprint
+    type: fingerprint
+    environment: production
+
+  get_build:
+    name: Find matching build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+
+  publish_update:
+    name: Publish branch update
+    needs: [get_build]
+    if: ${{ needs.get_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      platform: ios
+      branch: ${{ github.ref_name }}
+      # No Sentry org for the fork.
+      upload_sentry_sourcemaps: false
+    hooks:
+      before_update:
+        # The app follows a branch by its channel name; channel:create also
+        # creates the update branch of the same name and points it there. It
+        # fails once the channel exists, which is fine.
+        - name: Make sure the branch has an update channel
+          run: |
+            npx -y eas-cli@latest channel:create "${{ github.ref_name }}" --non-interactive \
+              || echo "Channel ${{ github.ref_name }} already exists (or could not be created)."

@@ -83,6 +83,16 @@ export default function MoreLayout() {
         }}
       />
       <Stack.Screen
+        name='developer'
+        options={{
+          title: t("developer.title"),
+          headerShown: !Platform.isTV,
+          headerBlurEffect: "none",
+          headerTransparent: Platform.OS === "ios",
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
         name='companion-login'
         options={{
           title: t("companion_login.title"),

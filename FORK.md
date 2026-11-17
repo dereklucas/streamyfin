@@ -52,7 +52,7 @@ picks one of two paths, based on the iOS native fingerprint
   Settings shows the commit it's running.
 - **Native change** (Swift/Kotlin in `modules/`, `targets/`, `plugins/`,
   native dependencies, app.json native config): full EAS build, then a
-  TestFlight upload with the commit message as "What to Test". The build
+  TestFlight upload (the free plan's submit job, so no "What to Test" note). The build
   number auto-increments on EAS. The build pins its runtime version to the
   source fingerprint it computes before prebuild (FORK_RUNTIME_VERSION, read
   by app.config.ts), so it always matches what the updates target.

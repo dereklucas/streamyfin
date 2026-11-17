@@ -70,6 +70,12 @@ final class PlayerViewModel: NSObject, ObservableObject {
 	@Published var subtitleScale: Double = 1.0
 	@Published var subtitleScaleLocked = false
 	@Published var subtitlesAtTop = false
+	/// Plain-text subtitles go below the picture when there is room there.
+	@Published var subtitlesBelowPicture = true
+	/// The user's subtitle colors, "#RRGGBB" and "#AARRGGBB", for the
+	/// below-picture label to match the burned-in look.
+	private(set) var subtitleColorHex: String?
+	private(set) var subtitleBackgroundHex: String?
 	/// Session-scoped A/V sync offsets (seconds) and softvol gain (percent).
 	/// Reset to neutral when the played item changes; re-applied to the
 	/// engine on every stream swap because mpv properties persist on the
@@ -540,6 +546,9 @@ final class PlayerViewModel: NSObject, ObservableObject {
 		subtitleScale = config.subtitleStyle?.scale ?? 1.0
 		subtitleScaleLocked = config.subtitleStyle?.scaleLocked ?? false
 		subtitlesAtTop = config.subtitleStyle?.alignY == "top"
+		subtitlesBelowPicture = config.subtitleStyle?.belowPicture ?? true
+		subtitleColorHex = config.subtitleStyle?.color
+		subtitleBackgroundHex = config.subtitleStyle?.background
 		uiStrings = config.ui.strings
 		updateSyncPlay(config.syncPlay)
 		position = config.stream.startPositionSec ?? 0

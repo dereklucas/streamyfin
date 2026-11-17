@@ -187,6 +187,11 @@ export type NativePlayerSubtitleStyle = {
   background?: string;
   backgroundPadding?: number;
   assOverride?: "no" | "force";
+  /**
+   * Draw plain-text subtitles in the letterbox below an aspect-fit picture
+   * when the bar there fits them, instead of over the picture (iOS).
+   */
+  belowPicture?: boolean;
 };
 
 /**

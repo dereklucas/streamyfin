@@ -25,6 +25,12 @@ final class NativePlayerViewController: UIViewController {
 	#endif
 
 	private let videoContainerView = UIView()
+	#if os(iOS)
+	/// Plain-text subtitles below the picture, in the letterbox under it.
+	private let belowPictureSubtitleView = BelowPictureSubtitleView()
+	private var subtitleLine: String?
+	private var subtitleIsPlainText = false
+	#endif
 	#if os(tvOS)
 	/// UIKit-side focus orchestration between the stacked layer hosts —
 	/// see TVFocusCoordinator for the sequencing contract.
@@ -123,6 +129,18 @@ final class NativePlayerViewController: UIViewController {
 		engine.displayLayer.frame = view.bounds
 		videoContainerView.layer.addSublayer(engine.displayLayer)
 
+		#if os(iOS)
+		// Over the video, under every overlay added after it (the controls
+		// cover it, as they cover burned-in subtitles).
+		view.insertSubview(belowPictureSubtitleView, aboveSubview: videoContainerView)
+		engine.onSubtitleText = { [weak self] text, isPlainText in
+			guard let self else { return }
+			self.subtitleLine = text
+			self.subtitleIsPlainText = isPlainText
+			self.updateBelowPictureSubtitles()
+		}
+		#endif
+
 		#if os(tvOS)
 		// The TV chrome is tvOS 26+ by design (native glass menus etc.) —
 		// the JS chooser never routes older boxes here, so pre-26 gets a
@@ -179,6 +197,18 @@ final class NativePlayerViewController: UIViewController {
 		#endif
 
 		#if os(iOS)
+		// Zoom, size, position and the setting all decide whether subtitles
+		// go below the picture.
+		Publishers.CombineLatest4(
+			viewModel.$isZoomedToFill,
+			viewModel.$subtitleScale,
+			viewModel.$subtitlesAtTop,
+			viewModel.$subtitlesBelowPicture
+		)
+		.receive(on: DispatchQueue.main)
+		.sink { [weak self] _ in self?.updateBelowPictureSubtitles() }
+		.store(in: &cancellables)
+
 		viewModel.$controlsVisible
 			.removeDuplicates()
 			.receive(on: DispatchQueue.main)
@@ -317,7 +347,48 @@ final class NativePlayerViewController: UIViewController {
 		engine.syncSubtitleLayerFrame()
 		CATransaction.commit()
 		viewModel.applySubtitleScale()
+		#if os(iOS)
+		updateBelowPictureSubtitles()
+		#endif
 	}
+
+	#if os(iOS)
+	/// Draws plain-text subtitles below the picture when the bar under an
+	/// aspect-fit picture has room for two lines, hiding the burned-in copy;
+	/// otherwise leaves them in the picture. Styled (ASS) and image subtitles
+	/// always stay in it, as do subtitles placed at the top or a zoomed picture
+	/// (no bars). PiP is the engine's: it burns them back in.
+	private func updateBelowPictureSubtitles() {
+		let container = view.bounds.size
+		let aspect =
+			CGFloat(viewModel.videoWidth ?? 0) / CGFloat(max(viewModel.videoHeight ?? 0, 1))
+		let pictureHeight = BelowPictureSubtitlePlacement.pictureHeight(
+			container: container, videoAspect: aspect)
+		let fontSize = BelowPictureSubtitlePlacement.fontSize(
+			pictureHeight: pictureHeight, scale: CGFloat(viewModel.subtitleScale))
+		let lineHeight = UIFont.systemFont(ofSize: fontSize, weight: .semibold).lineHeight
+		let wanted =
+			viewModel.subtitlesBelowPicture && subtitleIsPlainText
+			&& !viewModel.isZoomedToFill && !viewModel.subtitlesAtTop
+		let frame =
+			wanted
+			? BelowPictureSubtitlePlacement.frame(
+				container: container, videoAspect: aspect,
+				bottomInset: view.safeAreaInsets.bottom, lineHeight: lineHeight)
+			: nil
+
+		engine.setBelowPictureSubtitlesActive(frame != nil)
+		guard let frame else {
+			belowPictureSubtitleView.text = nil
+			return
+		}
+		belowPictureSubtitleView.frame = frame
+		belowPictureSubtitleView.fontSize = fontSize
+		belowPictureSubtitleView.textColorHex = viewModel.subtitleColorHex
+		belowPictureSubtitleView.backgroundHex = viewModel.subtitleBackgroundHex
+		belowPictureSubtitleView.text = subtitleLine
+	}
+	#endif
 
 	/// tvOS zoom-to-fill: AVSampleBufferDisplayLayer.videoGravity has a
 	/// history of silently not applying (and mpv's VO owns the layer), so

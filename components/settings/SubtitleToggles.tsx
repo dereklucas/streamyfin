@@ -627,6 +627,21 @@ export const SubtitleToggles: React.FC<Props> = React.memo(({ ...props }) => {
           />
         </ListItem>
 
+        {/* Only the iPhone and iPad player draws them there. */}
+        {Platform.OS === "ios" && !isTv && (
+          <ListItem
+            title={t("home.settings.subtitles.subtitle_below_picture")}
+            subtitle={t("home.settings.subtitles.subtitle_below_picture_hint")}
+          >
+            <SettingSwitch
+              value={settings.subtitleBelowPicture !== false}
+              onValueChange={(value) =>
+                updateSettings({ subtitleBelowPicture: value })
+              }
+            />
+          </ListItem>
+        )}
+
         <ListItem
           title={t("home.settings.subtitles.subtitle_background")}
           subtitle={t("home.settings.subtitles.subtitle_background_hint")}

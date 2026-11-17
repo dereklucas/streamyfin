@@ -25,6 +25,14 @@ protocol MPVLayerRendererDelegate: AnyObject {
     /// Fired only for a genuine end-of-file (MPV_END_FILE_REASON_EOF) — never
     /// for stop/quit during teardown, which would emit spurious end events.
     func rendererDidReachEnd(_ renderer: MPVLayerRenderer)
+    /// The subtitle line on screen now (nil between lines or with subtitles
+    /// off), and whether the selected track is plain text, which a label can
+    /// draw below the picture; styled (ASS) and image subtitles cannot be.
+    func renderer(_ renderer: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool)
+}
+
+extension MPVLayerRendererDelegate {
+    func renderer(_ renderer: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {}
 }
 
 /// MPV player using vo_avfoundation for video output.
@@ -67,6 +75,17 @@ final class MPVLayerRenderer {
     private var subtitleASSMetadata: String?
     private var subtitleASSLayout: ASSSubtitleLayout?
     private var subtitleASSOverrides: [String] = []
+    /// Burned-in subtitles are hidden while a label draws them below the
+    /// picture (see setBurnedInSubtitlesHidden). Renderer queue only.
+    private var burnedInSubtitlesHidden = false
+    private var subtitleIsPlainText = false
+    private var subtitleText: String?
+    /// Subtitle codecs mpv reports for text a label can draw as is.
+    private static let plainTextSubtitleCodecs: Set<String> = [
+        "subrip", "srt", "webvtt", "vtt", "mov_text", "text", "microdvd",
+        "subviewer", "subviewer1", "realtext", "sami", "jacosub", "mpl2",
+        "pjs", "stl", "vplayer", "ttml"
+    ]
     private static let compositesSubtitles: Bool = {
         #if os(tvOS) || targetEnvironment(simulator)
         return false
@@ -289,7 +308,10 @@ final class MPVLayerRenderer {
                 sid > 0
             else { return }
             self.commandSync(expectedHandle, ["set", "sub-visibility", "no"])
-            self.commandSync(expectedHandle, ["set", "sub-visibility", "yes"])
+            // Back to what is wanted: hidden while the label draws them.
+            self.commandSync(
+                expectedHandle,
+                ["set", "sub-visibility", self.burnedInSubtitlesHidden ? "no" : "yes"])
         }
     }
     #endif
@@ -414,6 +436,12 @@ final class MPVLayerRenderer {
         // audible, which would contradict the state JS still holds.
         if isMuted {
             setProperty(name: "mute", value: "yes")
+        }
+        // Likewise burned-in subtitles hidden for the label below the picture:
+        // a fresh instance shows them, under the label's copy.
+        onQueue { [weak self] in
+            guard let self, self.burnedInSubtitlesHidden else { return }
+            self.setProperty(name: "sub-visibility", value: "no")
         }
 
         // Observe properties
@@ -863,6 +891,7 @@ final class MPVLayerRenderer {
             ("track-list/count", MPV_FORMAT_INT64),
             ("sub-ass-extradata", MPV_FORMAT_STRING),
             ("sid", MPV_FORMAT_STRING),
+            ("sub-text", MPV_FORMAT_STRING),
             ("paused-for-cache", MPV_FORMAT_FLAG),
             ("demuxer-cache-duration", MPV_FORMAT_DOUBLE),
             ("current-ao", MPV_FORMAT_STRING)
@@ -1105,6 +1134,27 @@ final class MPVLayerRenderer {
         }
     }
     
+    private func notifySubtitleText() {
+        let text = subtitleText
+        let isPlainText = subtitleIsPlainText
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.delegate?.renderer(self, didChangeSubtitleText: text, isPlainText: isPlainText)
+        }
+    }
+
+    /// Hides burned-in subtitles while a label draws them below the picture,
+    /// and shows them again for the picture itself (and for PiP, which only
+    /// ever shows what is burned in). mpv keeps decoding them either way, so
+    /// `sub-text` stays current.
+    func setBurnedInSubtitlesHidden(_ hidden: Bool) {
+        onQueue { [weak self] in
+            guard let self, self.burnedInSubtitlesHidden != hidden else { return }
+            self.burnedInSubtitlesHidden = hidden
+            self.setProperty(name: "sub-visibility", value: hidden ? "no" : "yes")
+        }
+    }
+
     private func refreshProperty(named name: String, event: mpv_event) {
         guard let handle = mpv else { return }
         switch name {
@@ -1195,6 +1245,21 @@ final class MPVLayerRenderer {
             }
         case "sub-ass-extradata", "sid":
             applySubtitleLayout()
+            let codec = getStringProperty(handle: handle, name: "current-tracks/sub/codec")?
+                .lowercased() ?? ""
+            let isPlainText = Self.plainTextSubtitleCodecs.contains(codec)
+            if isPlainText != subtitleIsPlainText {
+                subtitleIsPlainText = isPlainText
+                Logger.shared.log(
+                    "Subtitle track codec: \(codec.isEmpty ? "none" : codec) (plain text: \(isPlainText))",
+                    type: "Info")
+            }
+            notifySubtitleText()
+        case "sub-text":
+            let text = getStringProperty(handle: handle, name: name)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            subtitleText = (text?.isEmpty ?? true) ? nil : text
+            notifySubtitleText()
         case "track-list/count":
             var trackCount: Int64 = 0
             let status = getProperty(handle: handle, name: name, format: MPV_FORMAT_INT64, value: &trackCount)

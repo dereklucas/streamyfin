@@ -50,6 +50,13 @@ extension MPVPlayerEngineDelegate {
 final class MPVPlayerEngine: NSObject {
 	weak var delegate: MPVPlayerEngineDelegate?
 
+	/// The subtitle line on screen (nil between lines) and whether its track
+	/// is plain text, for the host that draws it below the picture. Main.
+	var onSubtitleText: ((String?, Bool) -> Void)?
+	/// The host draws plain-text subtitles below the picture itself, so the
+	/// burned-in copy is hidden (except in PiP, which shows only that copy).
+	private var belowPictureSubtitlesActive = false
+
 	/// Hosts add this to their layer tree and update its frame on layout.
 	let displayLayer = AVSampleBufferDisplayLayer()
 
@@ -826,6 +833,29 @@ extension MPVPlayerEngine: MPVLayerRendererDelegate {
 			self.delegate?.engineDidReachEnd(self)
 		}
 	}
+
+	func renderer(_: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {
+		onSubtitleText?(text, isPlainText)
+	}
+}
+
+// MARK: - Subtitles below the picture
+
+extension MPVPlayerEngine {
+	/// Called by the host as its label starts or stops drawing subtitles
+	/// below the picture.
+	func setBelowPictureSubtitlesActive(_ active: Bool) {
+		guard active != belowPictureSubtitlesActive else { return }
+		belowPictureSubtitlesActive = active
+		applyBurnedInSubtitles()
+	}
+
+	/// PiP only ever shows what is burned into the frames.
+	fileprivate func applyBurnedInSubtitles() {
+		let inPictureInPicture =
+			pipController?.isPictureInPictureActive == true || isPictureInPictureStarting
+		renderer?.setBurnedInSubtitlesHidden(belowPictureSubtitlesActive && !inPictureInPicture)
+	}
 }
 
 // MARK: - PiPControllerDelegate
@@ -836,6 +866,8 @@ extension MPVPlayerEngine: PiPControllerDelegate {
 		pictureInPictureStopIsRestore = false
 		isPictureInPictureStopping = false
 		isPictureInPictureStarting = true
+		// PiP shows the frames alone: burn the subtitles back in.
+		renderer?.setBurnedInSubtitlesHidden(false)
 		// Sync timebase before PiP starts for smooth transition
 		renderer?.syncTimebase()
 		// Set current time for PiP progress bar
@@ -856,6 +888,8 @@ extension MPVPlayerEngine: PiPControllerDelegate {
 		// Notify the host of the actual PiP active state. `didStartPictureInPicture`
 		// is `false` when AVKit reports a failure to start, so reflect that.
 		delegate?.engine(self, didChangePictureInPicture: didStartPictureInPicture)
+		// A PiP that failed to start leaves the label in charge again.
+		if !didStartPictureInPicture { applyBurnedInSubtitles() }
 	}
 
 	func pipController(_ controller: PiPController, willStopPictureInPicture: Bool) {
@@ -880,6 +914,7 @@ extension MPVPlayerEngine: PiPControllerDelegate {
 		// Notify the host that PiP has fully stopped so the controls overlay
 		// can be re-mounted when the user returns to full screen.
 		delegate?.engine(self, didChangePictureInPicture: false)
+		applyBurnedInSubtitles()
 		pictureInPictureStopIsRestore = false
 		isPictureInPictureStopping = false
 	}

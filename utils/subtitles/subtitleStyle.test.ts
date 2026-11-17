@@ -39,7 +39,17 @@ describe("buildSubtitleStyle", () => {
       background: "#80000000",
       backgroundPadding: 12,
       assOverride: "force",
+      belowPicture: true,
     });
+  });
+
+  // On by default: a setting saved before it existed has no value for it.
+  it("puts subtitles below the picture unless turned off", () => {
+    expect(buildSubtitleStyle(baseSettings).belowPicture).toBe(true);
+    expect(
+      buildSubtitleStyle({ ...baseSettings, subtitleBelowPicture: false })
+        .belowPicture,
+    ).toBe(false);
   });
 
   it("accepts render-time scale, margin and lock overrides", () => {

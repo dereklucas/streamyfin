@@ -58,6 +58,7 @@ export const buildSubtitleStyle = (
     background: settings.subtitleBackground ? `#${alpha}000000` : "",
     backgroundPadding: settings.subtitleBackgroundPadding ?? 8,
     assOverride: hasCustomSubtitleStyle(settings) ? "force" : "no",
+    belowPicture: settings.subtitleBelowPicture !== false,
   };
 };
 

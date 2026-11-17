@@ -86,5 +86,39 @@ enum SubtitleLayoutTests {
             canvas: canvas, viewport: viewport, reference: reference, position: 100) == overrides)
         precondition(ASSSubtitleLayout(extradata: "[Script Info]\nPlayResX: nan\n") == nil)
         print("PASS: ASS script-coordinate margins, top/bottom dialogue, wrapping and fit restoration")
+
+        // Below the picture: a 16:9 picture on a portrait phone leaves a tall
+        // bar under it; the label sits just below the picture's bottom edge.
+        let phone = CGSize(width: 393, height: 852)
+        let wide: CGFloat = 16.0 / 9.0
+        let portraitFrame = BelowPictureSubtitlePlacement.frame(
+            container: phone, videoAspect: wide, bottomInset: 34, lineHeight: 20)!
+        let pictureHeight = 393 / wide
+        near(Double(portraitFrame.minY), Double((852 + pictureHeight) / 2 + 8))
+        near(Double(portraitFrame.width), 393 - 32)
+        near(Double(portraitFrame.height), 60)  // capped at three lines
+        // The same phone sideways: the picture fills the height, no bar.
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: CGSize(width: 852, height: 393), videoAspect: wide,
+            bottomInset: 21, lineHeight: 20) == nil)
+        // A 2.39:1 film on an iPad Pro in landscape has room for it.
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: CGSize(width: 1366, height: 1024), videoAspect: 2.39,
+            bottomInset: 20, lineHeight: 30) != nil)
+        // Two lines must fit, or subtitles stay in the picture.
+        let tight = CGSize(width: 1000, height: 562.5 + 2 * (8 + 2 * 20) - 2)
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: tight, videoAspect: wide, bottomInset: 0, lineHeight: 20) == nil)
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: phone, videoAspect: 0, bottomInset: 0, lineHeight: 20) == nil)
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: phone, videoAspect: .nan, bottomInset: 0, lineHeight: 20) == nil)
+        // The font follows the size burned-in subtitles would have, readable.
+        near(Double(BelowPictureSubtitlePlacement.fontSize(pictureHeight: 720, scale: 0.5)), 27.5)
+        near(Double(BelowPictureSubtitlePlacement.fontSize(pictureHeight: 100, scale: 1)), 15)
+        near(Double(BelowPictureSubtitlePlacement.fontSize(pictureHeight: 2000, scale: 1)), 40)
+        near(Double(BelowPictureSubtitlePlacement.pictureHeight(container: phone, videoAspect: wide)),
+             Double(pictureHeight))
+        print("PASS: subtitles below the picture: placement, no-room fallback and font size")
     }
 }

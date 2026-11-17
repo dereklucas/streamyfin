@@ -466,6 +466,7 @@ export type Settings = {
   subtitleBackground: boolean;
   subtitleBackgroundOpacity: number;
   subtitleBackgroundPadding: number;
+  subtitleBelowPicture?: boolean;
   subtitleFont: string;
   subtitleColor: string;
   subtitleMarginY?: number;
@@ -678,6 +679,7 @@ export const defaultValues: Settings = {
   subtitleBackground: false,
   subtitleBackgroundOpacity: 60,
   subtitleBackgroundPadding: 8,
+  subtitleBelowPicture: true,
   subtitleFont: "System",
   subtitleColor: "#FFFFFF",
   subtitleMarginY: 25,

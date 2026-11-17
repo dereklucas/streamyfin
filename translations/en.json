@@ -325,6 +325,8 @@
         "subtitle_margin_y": "Vertical margin",
         "subtitle_align_x": "Horizontal alignment",
         "subtitle_align_y": "Vertical alignment",
+        "subtitle_below_picture": "Subtitles below the picture",
+        "subtitle_below_picture_hint": "Shows subtitles in the black bars under widescreen video when they fit, instead of over the picture",
         "subtitle_background": "Subtitle background",
         "subtitle_background_hint": "Adds a semi-transparent black background behind subtitles",
         "subtitle_background_opacity": "Background opacity",

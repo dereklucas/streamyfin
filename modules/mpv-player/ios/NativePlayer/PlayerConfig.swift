@@ -149,6 +149,9 @@ struct SubtitleStyleRecord: Record {
 	@Field var background: String?
 	@Field var backgroundPadding: Int?
 	@Field var assOverride: String?
+	/// Draw plain-text subtitles below the picture when the letterbox under
+	/// it has room (iOS), instead of over the picture.
+	@Field var belowPicture: Bool = true
 }
 
 struct UIOptionsRecord: Record {

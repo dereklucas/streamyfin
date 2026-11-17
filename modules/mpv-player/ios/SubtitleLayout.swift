@@ -126,3 +126,61 @@ struct ASSSubtitleLayout {
         }
     }
 }
+
+/// Where plain-text subtitles go when they are drawn below the picture, in
+/// the letterbox under it, rather than over it: the screen's own black bars,
+/// outside the video frame, which burned-in subtitles cannot reach.
+struct BelowPictureSubtitlePlacement {
+    /// Lines the bar must hold before subtitles move into it.
+    static let minimumLines: CGFloat = 2
+    /// Most lines the label shows.
+    static let maximumLines: CGFloat = 3
+    /// Space between the picture's bottom edge and the text.
+    static let gap: CGFloat = 8
+    /// Horizontal inset from the screen edges.
+    static let sideMargin: CGFloat = 16
+
+    /// The label's frame, or nil when the bar under an aspect-fit picture is
+    /// too short for `minimumLines` lines (a phone held sideways, an iPad
+    /// playing 4:3) and subtitles stay in the picture.
+    static func frame(
+        container: CGSize,
+        videoAspect: CGFloat,
+        bottomInset: CGFloat,
+        lineHeight: CGFloat
+    ) -> CGRect? {
+        guard [container.width, container.height, videoAspect, lineHeight]
+            .allSatisfy({ $0.isFinite && $0 > 0 }),
+            bottomInset.isFinite, bottomInset >= 0
+        else { return nil }
+
+        let pictureWidth = min(container.width, container.height * videoAspect)
+        let pictureHeight = pictureWidth / videoAspect
+        let pictureBottom = (container.height + pictureHeight) / 2
+        let top = pictureBottom + gap
+        let available = container.height - bottomInset - top
+        guard available >= lineHeight * minimumLines else { return nil }
+
+        return CGRect(
+            x: sideMargin,
+            y: top,
+            width: container.width - sideMargin * 2,
+            height: min(available, lineHeight * maximumLines)
+        )
+    }
+
+    /// The label's font size: the size burned-in subtitles would have on this
+    /// picture (mpv's default 55 at a 720-line reference, times the user's
+    /// scale), kept readable.
+    static func fontSize(pictureHeight: CGFloat, scale: CGFloat) -> CGFloat {
+        guard pictureHeight.isFinite, pictureHeight > 0, scale.isFinite, scale > 0
+        else { return 17 }
+        return min(max(55 / 720 * pictureHeight * scale, 15), 40)
+    }
+
+    /// The picture's height when aspect-fit into the container.
+    static func pictureHeight(container: CGSize, videoAspect: CGFloat) -> CGFloat {
+        guard container.width > 0, container.height > 0, videoAspect > 0 else { return 0 }
+        return min(container.width, container.height * videoAspect) / videoAspect
+    }
+}

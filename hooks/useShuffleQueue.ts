@@ -10,14 +10,11 @@ import {
   getAdjacentStartTicks,
   getDefaultPlaySettings,
 } from "@/utils/jellyfin/getDefaultPlaySettings";
+import { playableQueueItems } from "@/utils/playableQueueItems";
 import { shuffle } from "@/utils/shuffle";
 
-/**
- * The entries a queue can play: a missing or unaired episode is listed by the
- * server as a "Virtual" placeholder, with no media file behind it.
- */
-export const playableQueueItems = (candidates: BaseItemDto[]): BaseItemDto[] =>
-  candidates.filter((item) => item.Id && item.LocationType !== "Virtual");
+// Kept here for the callers that import it from the hook.
+export { playableQueueItems };
 
 interface StartQueueOptions {
   isOffline?: boolean;

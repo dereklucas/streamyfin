@@ -8,7 +8,10 @@ jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({
 }));
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
-  return { apiAtom: atom({ basePath: "http://server" }) };
+  return {
+    apiAtom: atom({ basePath: "http://server" }),
+    userAtom: atom(null),
+  };
 });
 // One router object, as the real hook returns, or the handlers' deps change.
 jest.mock("@/hooks/useAppRouter", () => {
@@ -24,6 +27,10 @@ jest.mock("@/components/common/ItemActionSheetHost", () => ({
 }));
 jest.mock("@/components/common/ItemActionRunner", () => ({
   ItemActionRunner: () => null,
+}));
+// The menus read which items are downloaded; none are here.
+jest.mock("@/providers/DownloadProvider", () => ({
+  useDownload: () => ({ downloadedItems: [] }),
 }));
 // The artwork pulls in the image stack; the press path does not need it.
 jest.mock("./CardArtwork", () => ({ CardArtwork: () => null }));

@@ -13,7 +13,7 @@ jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
   const { makeApi } = jest.requireActual("@/test-utils/jellyfinApi");
   // The cards build their image URLs from the api; nothing is requested.
-  return { apiAtom: atom(makeApi()) };
+  return { apiAtom: atom(makeApi()), userAtom: atom(null) };
 });
 jest.mock("@/hooks/useAppRouter", () => ({
   __esModule: true,
@@ -29,6 +29,10 @@ jest.mock("@/components/common/ItemActionSheetHost", () => ({
 }));
 jest.mock("@/components/common/ItemActionRunner", () => ({
   ItemActionRunner: () => null,
+}));
+// The menus read which items are downloaded; none are here.
+jest.mock("@/providers/DownloadProvider", () => ({
+  useDownload: () => ({ downloadedItems: [] }),
 }));
 jest.mock("./Card", () => ({ Card: () => null }));
 

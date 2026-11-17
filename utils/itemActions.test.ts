@@ -11,54 +11,116 @@ const item = (Type: BaseItemKind | undefined): BaseItemDto => ({
   Id: "item-1",
   Type,
 });
-const online = { t, isOffline: false, isFavorite: false };
+
+const base = {
+  t,
+  isOffline: false,
+  isFavorite: false,
+  isDownloaded: false,
+  canDownload: true,
+};
 
 describe("itemMenuActions", () => {
-  test("offers played, unplayed and favorite for a movie", () => {
-    expect(itemMenuActions(item("Movie"), online).map((a) => a.key)).toEqual([
+  test("offers played, favorite and download for an unplayed movie", () => {
+    expect(itemMenuActions(item("Movie"), base).map((a) => a.key)).toEqual([
       "played",
-      "unplayed",
       "favorite",
+      "download",
     ]);
   });
 
+  test("offers unplayed instead of played once the item is played", () => {
+    const played: BaseItemDto = {
+      ...item("Movie"),
+      UserData: { Played: true } as BaseItemDto["UserData"],
+    };
+
+    const keys = itemMenuActions(played, base).map((a) => a.key);
+
+    expect(keys).toContain("unplayed");
+    expect(keys).not.toContain("played");
+  });
+
   test("puts Shuffle first for a series", () => {
-    expect(itemMenuActions(item("Series"), online)[0]).toMatchObject({
+    expect(itemMenuActions(item("Series"), base)[0]).toMatchObject({
       key: "shuffle",
       label: "player.shuffle",
     });
   });
 
   test("names the favorite action after the current state", () => {
-    const add = itemMenuActions(item("Movie"), online).at(-1);
-    const remove = itemMenuActions(item("Movie"), {
-      ...online,
-      isFavorite: true,
-    }).at(-1);
+    const find = (isFavorite: boolean) =>
+      itemMenuActions(item("Movie"), { ...base, isFavorite }).find(
+        (a) => a.key === "favorite",
+      );
 
-    expect(add?.label).toBe("music.track_options.add_to_favorites");
-    expect(remove?.label).toBe("music.track_options.remove_from_favorites");
-    expect(add?.systemImage).toBe("heart");
-    expect(remove?.systemImage).toBe("heart.slash");
+    expect(find(false)).toMatchObject({
+      label: "music.track_options.add_to_favorites",
+      systemImage: "heart",
+    });
+    expect(find(true)).toMatchObject({
+      label: "music.track_options.remove_from_favorites",
+      systemImage: "heart.slash",
+    });
   });
 
-  test("offers deleting the download offline, as a destructive action last", () => {
+  test("offers deleting the download, last and destructive, once downloaded", () => {
     const actions = itemMenuActions(item("Episode"), {
-      t,
+      ...base,
+      isDownloaded: true,
+    });
+
+    expect(actions.map((a) => a.key)).not.toContain("download");
+    expect(actions.at(-1)).toMatchObject({ key: "delete", destructive: true });
+  });
+
+  test("offers deleting the download offline", () => {
+    const actions = itemMenuActions(item("Episode"), {
+      ...base,
       isOffline: true,
-      isFavorite: false,
+      isDownloaded: true,
     });
 
     expect(actions.at(-1)).toMatchObject({ key: "delete", destructive: true });
   });
 
+  test("offers downloading a whole series or season", () => {
+    for (const type of ["Series", "Season"] as const) {
+      expect(itemMenuActions(item(type), base).map((a) => a.key)).toContain(
+        "download",
+      );
+    }
+  });
+
+  test("offers no download offline, or to a user the server does not let download", () => {
+    expect(
+      itemMenuActions(item("Movie"), { ...base, isOffline: true }).map(
+        (a) => a.key,
+      ),
+    ).not.toContain("download");
+    expect(
+      itemMenuActions(item("Movie"), { ...base, canDownload: false }).map(
+        (a) => a.key,
+      ),
+    ).not.toContain("download");
+  });
+
+  test("offers no download for a collection or folder", () => {
+    for (const type of ["BoxSet", "Folder"] as const) {
+      expect(itemMenuActions(item(type), base).map((a) => a.key)).not.toContain(
+        "download",
+      );
+    }
+  });
+
   test("gives every action an SF Symbol", () => {
-    for (const action of itemMenuActions(item("Series"), {
-      t,
-      isOffline: true,
-      isFavorite: false,
-    })) {
-      expect(action.systemImage).toBeTruthy();
+    for (const isDownloaded of [false, true]) {
+      for (const action of itemMenuActions(item("Series"), {
+        ...base,
+        isDownloaded,
+      })) {
+        expect(action.systemImage).toBeTruthy();
+      }
     }
   });
 
@@ -68,6 +130,6 @@ describe("itemMenuActions", () => {
     "Playlist",
     undefined,
   ])("offers nothing for a %s", (type) => {
-    expect(itemMenuActions(item(type), online)).toEqual([]);
+    expect(itemMenuActions(item(type), base)).toEqual([]);
   });
 });

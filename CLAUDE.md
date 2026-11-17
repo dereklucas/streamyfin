@@ -330,3 +330,13 @@ work on `fix/*` branches cut from `development` (a merge to `development`
 ships to TestFlight). Never mix fixes into the `chore(fork)` commits, so
 fixes can be cherry-picked onto upstream `develop` for PRs. Primary target:
 iPad Pro layout. Check both 11" and 13" sizes, in portrait and landscape.
+
+Fork conventions:
+- **Every poster has the long-press menu.** A row or grid of media items passes
+  `enableActionSheet` (or uses `useItemMenus` for anything that is not a card,
+  like the native home hero), never a long press of its own. The actions are
+  `utils/itemActions.ts`; the native menu is
+  `components/common/NativeContextMenu.tsx`.
+- **Ship JS-only changes as updates.** When the EAS workflow queue is slow,
+  publish from the CLI: `eas update --branch production --platform ios
+  --environment production`. A native change needs the workflow's build.

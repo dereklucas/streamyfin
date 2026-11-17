@@ -7,7 +7,7 @@ import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 
 // Shared atom to store favorite status across all components
 // Maps itemId -> isFavorite
-const favoritesAtom = atom<Record<string, boolean>>({});
+export const favoritesAtom = atom<Record<string, boolean>>({});
 
 export const useFavorite = (item: BaseItemDto) => {
   const queryClient = useQueryClient();

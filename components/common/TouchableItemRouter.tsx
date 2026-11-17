@@ -7,7 +7,9 @@ import {
   type TouchableOpacityProps,
 } from "react-native";
 import useRouter from "@/hooks/useAppRouter";
-import { useItemActionSheet } from "@/hooks/useItemActionSheet";
+import { useItemLongPress } from "@/hooks/useItemActionSheet";
+import type { ItemActionKey } from "@/utils/itemActions";
+import { hasNativeContextMenu, NativeContextMenu } from "./NativeContextMenu";
 
 interface Props extends TouchableOpacityProps {
   item: BaseItemDto;
@@ -170,7 +172,12 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
 }) => {
   const segments = useSegments();
   const router = useRouter();
-  const showActionSheet = useItemActionSheet(item);
+  const { menuActions, runAction, showActionSheet } = useItemLongPress(item);
+  const nativeMenu = hasNativeContextMenu() && menuActions.length > 0;
+  const handleMenuAction = useCallback(
+    (key: string) => void runAction(key as ItemActionKey),
+    [runAction],
+  );
 
   const from = (segments as string[])[2] || "(home)";
 
@@ -195,13 +202,19 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
     from === "(tv-watchlists)"
   )
     return (
-      <TouchableOpacity
-        onLongPress={showActionSheet}
-        onPress={handlePress}
-        {...props}
+      // iPhone and iPad: the system context menu in place of the sheet.
+      <NativeContextMenu
+        actions={nativeMenu ? menuActions : []}
+        onAction={handleMenuAction}
       >
-        {children}
-      </TouchableOpacity>
+        <TouchableOpacity
+          onLongPress={nativeMenu ? undefined : showActionSheet}
+          onPress={handlePress}
+          {...props}
+        >
+          {children}
+        </TouchableOpacity>
+      </NativeContextMenu>
     );
 
   return null;

@@ -2,13 +2,16 @@ import type {
   BaseItemDto,
   BaseItemKind,
 } from "@jellyfin/sdk/lib/generated-client/models";
+import type { TFunction } from "i18next";
 import { itemMenuActions } from "./itemActions";
+
+const t = ((key: string) => key) as TFunction;
 
 const item = (Type: BaseItemKind | undefined): BaseItemDto => ({
   Id: "item-1",
   Type,
 });
-const online = { isOffline: false, isFavorite: false };
+const online = { t, isOffline: false, isFavorite: false };
 
 describe("itemMenuActions", () => {
   test("offers played, unplayed and favorite for a movie", () => {
@@ -41,6 +44,7 @@ describe("itemMenuActions", () => {
 
   test("offers deleting the download offline, as a destructive action last", () => {
     const actions = itemMenuActions(item("Episode"), {
+      t,
       isOffline: true,
       isFavorite: false,
     });
@@ -50,6 +54,7 @@ describe("itemMenuActions", () => {
 
   test("gives every action an SF Symbol", () => {
     for (const action of itemMenuActions(item("Series"), {
+      t,
       isOffline: true,
       isFavorite: false,
     })) {

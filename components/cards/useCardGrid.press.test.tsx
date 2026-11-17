@@ -22,6 +22,9 @@ jest.mock("@/components/common/TouchableItemRouter", () => ({
 jest.mock("@/components/common/ItemActionSheetHost", () => ({
   ItemActionSheetHost: () => null,
 }));
+jest.mock("@/components/common/ItemActionRunner", () => ({
+  ItemActionRunner: () => null,
+}));
 // The artwork pulls in the image stack; the press path does not need it.
 jest.mock("./CardArtwork", () => ({ CardArtwork: () => null }));
 

@@ -1,5 +1,6 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { act, render } from "@testing-library/react-native";
+import { Platform } from "react-native";
 import {
   chooseAction,
   showActionSheetWithOptions,
@@ -24,10 +25,12 @@ jest.mock("@/components/common/TouchableItemRouter", () => ({
   getItemNavigation: () => "",
   itemRouter: () => "",
 }));
+const mockMarkAsPlayed = jest.fn(async (_played: boolean) => {});
 jest.mock("@/hooks/useMarkAsPlayed", () => ({
-  useMarkAsPlayed: () => async () => {},
+  useMarkAsPlayed: () => mockMarkAsPlayed,
 }));
 jest.mock("@/hooks/useFavorite", () => ({
+  favoritesAtom: jest.requireActual("jotai").atom({}),
   useFavorite: () => ({ isFavorite: false, toggleFavorite: () => {} }),
 }));
 jest.mock("@/providers/DownloadProvider", () => ({
@@ -40,36 +43,46 @@ jest.mock(
 
 const MOVIE: BaseItemDto = { Id: "movie-1", Type: "Movie", Name: "Movie" };
 
-let longPress: (id: string) => void = () => {};
+let longPress: ((id: string) => void) | undefined;
+let menuActionsFor: ((id: string) => { key: string }[] | undefined) | undefined;
+let menuAction: (id: string, key: string) => void = () => {};
 
 const Harness = () => {
-  const { handleLongPress, actionSheet } = useItemCardBehavior({
+  const behavior = useItemCardBehavior({
     items: [MOVIE],
     kind: "rowWide",
     enableActionSheet: true,
   });
-  longPress = handleLongPress ?? (() => {});
-  return actionSheet;
+  longPress = behavior.handleLongPress;
+  menuActionsFor = behavior.menuActionsFor;
+  menuAction = behavior.handleMenuAction;
+  return behavior.actionSheet;
 };
 
 const sheetsShown = () => jest.mocked(showActionSheetWithOptions).mock.calls;
 
-describe("useItemCardBehavior long press", () => {
+// The action sheet is the long press where there is no native context menu.
+describe("useItemCardBehavior long press, Android", () => {
+  const originalOS = Platform.OS;
   beforeEach(() => {
+    Platform.OS = "android";
     jest.mocked(showActionSheetWithOptions).mockReset();
+  });
+  afterEach(() => {
+    Platform.OS = originalOS;
   });
 
   test("opens the sheet again after it is cancelled", async () => {
     await render(<Harness />);
 
-    await act(async () => longPress(MOVIE.Id!));
+    await act(async () => longPress?.(MOVIE.Id!));
     expect(sheetsShown()).toHaveLength(1);
     const cancelIndex = sheetsShown()[0][0].options.length - 1;
     await act(async () => {
       await chooseAction(cancelIndex);
     });
 
-    await act(async () => longPress(MOVIE.Id!));
+    await act(async () => longPress?.(MOVIE.Id!));
     expect(sheetsShown()).toHaveLength(2);
   });
 
@@ -79,10 +92,46 @@ describe("useItemCardBehavior long press", () => {
   test("opens the sheet again when the last one closed without an answer", async () => {
     await render(<Harness />);
 
-    await act(async () => longPress(MOVIE.Id!));
+    await act(async () => longPress?.(MOVIE.Id!));
     expect(sheetsShown()).toHaveLength(1);
 
-    await act(async () => longPress(MOVIE.Id!));
+    await act(async () => longPress?.(MOVIE.Id!));
     expect(sheetsShown()).toHaveLength(2);
+  });
+});
+
+describe("useItemCardBehavior long press, iPhone and iPad", () => {
+  beforeEach(() => {
+    jest.mocked(showActionSheetWithOptions).mockReset();
+    mockMarkAsPlayed.mockClear();
+  });
+
+  test("gives each poster a native context menu instead of the sheet", async () => {
+    await render(<Harness />);
+
+    expect(longPress).toBeUndefined();
+    expect(menuActionsFor?.(MOVIE.Id!)?.map((a) => a.key)).toEqual([
+      "played",
+      "unplayed",
+      "favorite",
+    ]);
+  });
+
+  test("runs the chosen menu action for that item", async () => {
+    await render(<Harness />);
+
+    await act(async () => menuAction(MOVIE.Id!, "played"));
+
+    expect(mockMarkAsPlayed).toHaveBeenCalledWith(true);
+    expect(showActionSheetWithOptions).not.toHaveBeenCalled();
+  });
+
+  test("runs the same action again on a second choice", async () => {
+    await render(<Harness />);
+
+    await act(async () => menuAction(MOVIE.Id!, "unplayed"));
+    await act(async () => menuAction(MOVIE.Id!, "unplayed"));
+
+    expect(mockMarkAsPlayed).toHaveBeenCalledTimes(2);
   });
 });

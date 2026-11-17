@@ -1,17 +1,22 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { useSegments } from "expo-router";
 import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { platformDetails } from "@/components/common/NativeContextMenu";
 import { useActionSheet } from "@/hooks/useActionSheet";
+import useRouter from "@/hooks/useAppRouter";
 import { useFavorite } from "@/hooks/useFavorite";
 import { useMarkAsPlayed } from "@/hooks/useMarkAsPlayed";
 import { useMenuDownload } from "@/hooks/useMenuDownload";
+import { usePlayItem } from "@/hooks/usePlayItem";
+import { usePlayNextEpisode } from "@/hooks/usePlayNextEpisode";
 import { useShuffleSeries } from "@/hooks/useShuffleSeries";
 import { useDownload } from "@/providers/DownloadProvider";
 import { userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
+import { getItemNavigation } from "@/utils/itemNavigation";
 import { writeInfoLog } from "@/utils/log";
 
 /**
@@ -25,6 +30,12 @@ export function useItemActions(item: BaseItemDto) {
   const { deleteFile, downloadedItems } = useDownload();
   const shuffleSeries = useShuffleSeries();
   const menuDownload = useMenuDownload();
+  const playItem = usePlayItem();
+  const playNextEpisode = usePlayNextEpisode();
+  const router = useRouter();
+  const segments = useSegments();
+  // The tab the long press happened in, so the page opens in that tab's stack.
+  const from = (segments as string[])[2] || "(home)";
   const user = useAtomValue(userAtom);
   const isDownloaded = Boolean(
     item.Id && downloadedItems?.some((d) => d.item.Id === item.Id),
@@ -34,6 +45,40 @@ export function useItemActions(item: BaseItemDto) {
   const run = useCallback(
     async (key: ItemActionKey): Promise<void> => {
       switch (key) {
+        case "play":
+        case "playFromStart":
+          await playItem(item, {
+            fromStart: key === "playFromStart",
+            isOffline,
+          });
+          return;
+        case "playNext":
+          await playNextEpisode(item);
+          return;
+        case "goToSeries":
+          if (!item.SeriesId) return;
+          router.push(
+            getItemNavigation(
+              { Id: item.SeriesId, Type: "Series" },
+              from,
+            ) as never,
+          );
+          return;
+        case "goToSeason":
+          if (!item.SeriesId || item.ParentIndexNumber == null) return;
+          // A season opens as its series page, scrolled to that season.
+          router.push(
+            getItemNavigation(
+              {
+                Id: item.SeasonId ?? undefined,
+                Type: "Season",
+                SeriesId: item.SeriesId,
+                IndexNumber: item.ParentIndexNumber,
+              },
+              from,
+            ) as never,
+          );
+          return;
         case "shuffle":
           await shuffleSeries(item, { isOffline });
           return;
@@ -62,6 +107,10 @@ export function useItemActions(item: BaseItemDto) {
       toggleFavorite,
       menuDownload,
       deleteFile,
+      playItem,
+      playNextEpisode,
+      router,
+      from,
     ],
   );
 

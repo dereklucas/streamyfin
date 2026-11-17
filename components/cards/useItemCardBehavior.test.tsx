@@ -7,6 +7,11 @@ import {
 } from "@/test-utils/actionSheet";
 import { useItemCardBehavior } from "./useItemCardBehavior";
 
+// The menu's Play starts the player, which is not what is under test.
+jest.mock("@/hooks/usePlayItem", () => ({ usePlayItem: () => async () => {} }));
+jest.mock("@/hooks/usePlayNextEpisode", () => ({
+  usePlayNextEpisode: () => async () => {},
+}));
 // The sheet's Shuffle starts the player, which is not what is under test.
 jest.mock("@/hooks/useShuffleSeries", () => ({
   useShuffleSeries: () => async () => {},
@@ -114,6 +119,7 @@ describe("useItemCardBehavior long press, iPhone and iPad", () => {
 
     expect(longPress).toBeUndefined();
     expect(menuActionsFor?.(MOVIE.Id!)?.map((a) => a.key)).toEqual([
+      "play",
       "played",
       "favorite",
     ]);

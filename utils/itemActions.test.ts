@@ -21,8 +21,9 @@ const base = {
 };
 
 describe("itemMenuActions", () => {
-  test("offers played, favorite and download for an unplayed movie", () => {
+  test("offers play, played, favorite and download for an unplayed movie", () => {
     expect(itemMenuActions(item("Movie"), base).map((a) => a.key)).toEqual([
+      "play",
       "played",
       "favorite",
       "download",
@@ -41,8 +42,10 @@ describe("itemMenuActions", () => {
     expect(keys).not.toContain("played");
   });
 
-  test("puts Shuffle first for a series", () => {
-    expect(itemMenuActions(item("Series"), base)[0]).toMatchObject({
+  test("offers Shuffle for a series", () => {
+    expect(
+      itemMenuActions(item("Series"), base).find((a) => a.key === "shuffle"),
+    ).toMatchObject({
       key: "shuffle",
       label: "player.shuffle",
     });
@@ -142,6 +145,7 @@ describe("itemMenuActions groups", () => {
 
   test("puts played state, favorite and download in the quick row", () => {
     expect(groups(item("Movie"))).toEqual({
+      play: "primary",
       played: "quick",
       favorite: "quick",
       download: "quick",
@@ -164,5 +168,78 @@ describe("itemMenuActions groups", () => {
       isFavorite: true,
     }).find((a) => a.key === "favorite");
     expect(favorite?.shortLabel).toBe("item_card.menu.unfavorite");
+  });
+});
+
+describe("itemMenuActions playback and navigation", () => {
+  const keys = (it: BaseItemDto, extra = {}) =>
+    itemMenuActions(it, { ...base, ...extra }).map((a) => a.key);
+  const resumable = (Type: BaseItemKind): BaseItemDto => ({
+    ...item(Type),
+    UserData: {
+      PlaybackPositionTicks: 25_300_000_000,
+    } as BaseItemDto["UserData"],
+  });
+  const episode: BaseItemDto = {
+    ...item("Episode"),
+    SeriesId: "series-1",
+    SeasonId: "season-2",
+    ParentIndexNumber: 2,
+  };
+
+  test("offers Resume and Play from start for a movie with a resume point", () => {
+    const actions = itemMenuActions(resumable("Movie"), base);
+
+    expect(actions[0]).toMatchObject({
+      key: "play",
+      label: "item_card.menu.resume_from",
+      systemImage: "play.fill",
+    });
+    expect(actions[1]).toMatchObject({
+      key: "playFromStart",
+      label: "item_card.play_from_start",
+    });
+  });
+
+  test("offers only Play when there is nothing to resume", () => {
+    const actions = itemMenuActions(item("Movie"), base);
+
+    expect(actions[0]).toMatchObject({ key: "play", label: "common.play" });
+    expect(actions.map((a) => a.key)).not.toContain("playFromStart");
+  });
+
+  test("offers no Play for an episode the library has no file for", () => {
+    expect(keys({ ...episode, LocationType: "Virtual" })).not.toContain("play");
+  });
+
+  test("offers going to the show and the season from an episode", () => {
+    const actions = itemMenuActions(episode, base);
+
+    expect(actions.map((a) => a.key)).toEqual([
+      "play",
+      "played",
+      "favorite",
+      "download",
+      "goToSeries",
+      "goToSeason",
+    ]);
+    expect(
+      actions.filter((a) => a.key.startsWith("goTo")).map((a) => a.group),
+    ).toEqual(["nav", "nav"]);
+  });
+
+  test("offers going to the show from a season", () => {
+    expect(keys({ ...item("Season"), SeriesId: "series-1" })).toContain(
+      "goToSeries",
+    );
+  });
+
+  test("offers Play next episode and Shuffle for a series, online", () => {
+    const actions = keys(item("Series"));
+
+    expect(actions.slice(0, 2)).toEqual(["playNext", "shuffle"]);
+    expect(actions).not.toContain("play");
+    // The next episode is the server's to say.
+    expect(keys(item("Series"), { isOffline: true })).not.toContain("playNext");
   });
 });

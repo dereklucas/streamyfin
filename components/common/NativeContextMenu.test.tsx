@@ -118,4 +118,30 @@ describe("NativeContextMenu", () => {
 
     expect(screen.getByText("Big poster")).toBeTruthy();
   });
+
+  test("puts navigation in its own section between the list and the destructive end", async () => {
+    Platform.OS = "ios";
+    await render(
+      <NativeContextMenu
+        actions={[
+          { key: "play", label: "Play", group: "primary" },
+          { key: "goToSeries", label: "Go to show", group: "nav" },
+          {
+            key: "delete",
+            label: "Delete download",
+            destructive: true,
+            group: "destructive",
+          },
+        ]}
+        onAction={() => {}}
+      >
+        <Text>Poster</Text>
+      </NativeContextMenu>,
+    );
+
+    expect(
+      screen.getAllByRole("menuitem").map((row) => row.props.children),
+    ).toEqual(["Play", "Go to show", "Delete download"]);
+    expect(screen.getAllByTestId("swiftui-divider")).toHaveLength(2);
+  });
 });

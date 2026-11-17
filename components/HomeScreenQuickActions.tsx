@@ -1,24 +1,26 @@
-import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api";
+import { getLibraryApi, getUserViewApi } from "@jellyfin/sdk/lib/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import * as QuickActions from "expo-quick-actions";
 import { useQuickActionCallback } from "expo-quick-actions/hooks";
 import { useAtomValue } from "jotai";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppState, Platform } from "react-native";
 import useRouter from "@/hooks/useAppRouter";
 import { usePlayItem } from "@/hooks/usePlayItem";
+import { useDownload } from "@/providers/DownloadProvider";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
+import { useSettings } from "@/utils/atoms/settings";
 import {
   buildHomeScreenActions,
-  HOME_SCREEN_MAX_ACTIONS,
   type HomeScreenActionTarget,
   homeScreenActionTarget,
 } from "@/utils/homeScreenActions";
 
 /**
  * The quick actions on the app's Home Screen icon (a long press on it):
- * resuming what is in progress, Search and Downloads. Keeps them current —
+ * resuming the latest in-progress item, libraries, Search, and Downloads while
+ * anything is downloaded. Keeps them current —
  * refreshed each time the app leaves the foreground, cleared while nobody is
  * signed in — and carries out the one chosen. Renders nothing.
  *
@@ -40,19 +42,46 @@ export const HomeScreenQuickActions = () => {
         await getLibraryApi(api!).getResumeItems({
           userId: user!.Id!,
           includeItemTypes: ["Movie", "Episode"],
-          limit: HOME_SCREEN_MAX_ACTIONS,
+          limit: 1,
         })
       ).data.Items ?? [],
     enabled: signedIn && !Platform.isTV,
   });
 
+  // The Libraries tab's own query (components/library/Libraries.tsx), so the
+  // two share a cache, and its filters: no hidden libraries, no books.
+  const { settings } = useSettings();
+  const { data: userViews } = useQuery({
+    queryKey: ["user-views", user?.Id],
+    queryFn: async () =>
+      (await getUserViewApi(api!).getUserViews({ userId: user?.Id })).data
+        .Items || null,
+    staleTime: 60,
+    enabled: signedIn && !Platform.isTV,
+  });
+  const libraries = useMemo(
+    () =>
+      (userViews ?? [])
+        .filter((l) => !settings?.hiddenLibraries?.includes(l.Id!))
+        .filter((l) => l.CollectionType !== "books"),
+    [userViews, settings?.hiddenLibraries],
+  );
+
+  const { downloadedItems } = useDownload();
+  const hasDownloads = (downloadedItems?.length ?? 0) > 0;
+
   useEffect(() => {
     if (Platform.isTV) return;
-    const items = signedIn ? buildHomeScreenActions(resumeItems ?? [], t) : [];
+    const items = signedIn
+      ? buildHomeScreenActions(
+          { resumeItems: resumeItems ?? [], libraries, hasDownloads },
+          t,
+        )
+      : [];
     QuickActions.setItems(items).catch(() => {
       // Nothing to recover: the icon keeps its previous actions.
     });
-  }, [signedIn, resumeItems, t]);
+  }, [signedIn, resumeItems, libraries, hasDownloads, t]);
 
   // What was watched last is what the icon offers next, so refresh on the
   // way out.

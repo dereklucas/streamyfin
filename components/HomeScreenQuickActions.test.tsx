@@ -16,8 +16,18 @@ jest.mock("expo-quick-actions/hooks", () => ({
   },
 }));
 const mockGetResumeItems = jest.fn();
+const mockGetUserViews = jest.fn();
 jest.mock("@jellyfin/sdk/lib/utils/api", () => ({
   getLibraryApi: () => ({ getResumeItems: mockGetResumeItems }),
+  getUserViewApi: () => ({ getUserViews: mockGetUserViews }),
+}));
+let mockDownloaded: unknown[] = [];
+jest.mock("@/providers/DownloadProvider", () => ({
+  useDownload: () => ({ downloadedItems: mockDownloaded }),
+}));
+let mockHiddenLibraries: string[] = [];
+jest.mock("@/utils/atoms/settings", () => ({
+  useSettings: () => ({ settings: { hiddenLibraries: mockHiddenLibraries } }),
 }));
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
@@ -58,6 +68,43 @@ describe("HomeScreenQuickActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetResumeItems.mockResolvedValue({ data: { Items: [RESUME] } });
+    mockGetUserViews.mockResolvedValue({
+      data: {
+        Items: [
+          { Id: "books", Name: "Books", CollectionType: "books" },
+          { Id: "hidden", Name: "Hidden", CollectionType: "movies" },
+          { Id: "movies", Name: "Movies", CollectionType: "movies" },
+          { Id: "tv", Name: "TV Shows", CollectionType: "tvshows" },
+        ],
+      },
+    });
+    mockDownloaded = [];
+    mockHiddenLibraries = ["hidden"];
+  });
+
+  // The Libraries tab's own list: hidden libraries and books are not on it.
+  test("fills the room left with the libraries the Libraries tab shows", async () => {
+    await setup(true);
+
+    await waitFor(() =>
+      expect(mockSetItems).toHaveBeenLastCalledWith([
+        expect.objectContaining({ id: "resume:m1" }),
+        expect.objectContaining({ id: "library:tv" }),
+        expect.objectContaining({ id: "library:movies" }),
+        expect.objectContaining({ id: "search" }),
+      ]),
+    );
+  });
+
+  test("offers Downloads once something is downloaded", async () => {
+    mockDownloaded = [{ item: { Id: "m1" } }];
+    await setup(true);
+
+    await waitFor(() =>
+      expect(mockSetItems).toHaveBeenLastCalledWith(
+        expect.arrayContaining([expect.objectContaining({ id: "downloads" })]),
+      ),
+    );
   });
 
   test("puts what is in progress on the Home Screen icon", async () => {

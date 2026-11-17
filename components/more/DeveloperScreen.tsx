@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import * as Updates from "expo-updates";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,13 +11,15 @@ import { toast } from "sonner-native";
 import { Text } from "@/components/common/Text";
 import { ListGroup } from "@/components/list/ListGroup";
 import { ListItem } from "@/components/list/ListItem";
+import { DIAGNOSTICS_UPDATE_LOG_MAX_AGE_MS } from "@/constants/DevUpdates";
+import { buildDiagnosticsReport } from "@/utils/devDiagnostics";
 import {
   checkForUpdateNow,
   followBranch,
   followedBranch,
   listForkBranches,
 } from "@/utils/devUpdates";
-import { writeErrorLog } from "@/utils/log";
+import { readFromLog, writeErrorLog } from "@/utils/log";
 import { getVersionInfo } from "@/utils/version";
 
 const fetchJson = async (url: string): Promise<unknown> => {
@@ -25,6 +29,28 @@ const fetchJson = async (url: string): Promise<unknown> => {
   if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
   return response.json();
 };
+
+/** Everything expo-updates says about this launch, for the report. */
+const runningDetails = (
+  following: string,
+  version: ReturnType<typeof getVersionInfo>,
+): Record<string, string> => ({
+  appVersion: `${version.version ?? "?"} (${version.build ?? "?"})`,
+  commit: version.commit ?? "?",
+  branch: version.branch ?? "?",
+  following,
+  isEnabled: String(Updates.isEnabled),
+  channel: Updates.channel ?? "(none)",
+  runtimeVersion: Updates.runtimeVersion ?? "(none)",
+  updateId: Updates.updateId ?? "(none)",
+  createdAt: Updates.createdAt?.toISOString() ?? "(none)",
+  isEmbeddedLaunch: String(Updates.isEmbeddedLaunch),
+  isEmergencyLaunch: String(Updates.isEmergencyLaunch),
+  emergencyLaunchReason: Updates.emergencyLaunchReason ?? "(none)",
+  checkAutomatically: String(Updates.checkAutomatically),
+  launchDuration: String(Updates.launchDuration),
+  platform: `${Platform.OS} ${Platform.Version}`,
+});
 
 /**
  * Fork only (More → Developer): what is running, a way to pull the latest
@@ -71,6 +97,27 @@ export const DeveloperScreen: React.FC = () => {
       }
     });
 
+  const shareDiagnostics = () =>
+    run("diagnostics", async () => {
+      const updateLogs = Updates.isEnabled
+        ? await Updates.readLogEntriesAsync(DIAGNOSTICS_UPDATE_LOG_MAX_AGE_MS)
+        : [];
+      const report = buildDiagnosticsReport({
+        generatedAt: new Date(),
+        running: runningDetails(following, version),
+        updateLogs,
+        appLogs: readFromLog(),
+      });
+      const file = new File(Paths.cache, "streamyfin-diagnostics.txt");
+      if (file.exists) file.delete();
+      file.create();
+      file.write(report);
+      await Sharing.shareAsync(file.uri, {
+        mimeType: "text/plain",
+        UTI: "public.plain-text",
+      });
+    });
+
   const bundle = Updates.isEmbeddedLaunch
     ? t("developer.embedded")
     : t("developer.update", { id: Updates.updateId?.slice(0, 8) ?? "?" });
@@ -109,6 +156,19 @@ export const DeveloperScreen: React.FC = () => {
             title={t("developer.runtime")}
             value={Updates.runtimeVersion?.slice(0, 7) ?? "?"}
           />
+          <ListItem
+            title={t("developer.channel")}
+            value={Updates.channel ?? t("developer.no_channel")}
+          />
+          {/* expo-updates fell back to the built-in bundle: an update failed
+              to launch, which otherwise looks like no update at all. */}
+          {Updates.isEmergencyLaunch ? (
+            <ListItem
+              title={t("developer.emergency_launch")}
+              subtitle={Updates.emergencyLaunchReason ?? undefined}
+              subtitleColor='red'
+            />
+          ) : null}
         </ListGroup>
 
         <ListGroup>
@@ -124,6 +184,17 @@ export const DeveloperScreen: React.FC = () => {
             textColor='blue'
             disabled={!Updates.isEnabled || busy !== null}
             onPress={checkNow}
+          />
+          <ListItem
+            icon='share-outline'
+            title={
+              busy === "diagnostics"
+                ? t("developer.preparing")
+                : t("developer.share_diagnostics")
+            }
+            textColor='blue'
+            disabled={busy !== null}
+            onPress={shareDiagnostics}
           />
         </ListGroup>
 

@@ -4,6 +4,7 @@ import {
   type NativeContextMenuAction,
 } from "@/components/common/NativeContextMenu";
 import { Text } from "@/components/common/Text";
+import { longPressFor } from "./Card";
 import { CardArtwork } from "./CardArtwork";
 import {
   CARD_LAYOUTS,
@@ -11,6 +12,7 @@ import {
   type CardKind,
   type CardSlots,
 } from "./CardData";
+import { CardMenuPreview } from "./CardMenuPreview";
 
 type Props = {
   card: CardData;
@@ -47,10 +49,15 @@ export const CardListRow: React.FC<Props> = ({
     <NativeContextMenu
       actions={menuActions ?? []}
       onAction={(key) => onMenuAction?.(key)}
+      preview={
+        menuActions?.length ? (
+          <CardMenuPreview card={card} kind={kind} />
+        ) : undefined
+      }
     >
       <TouchableOpacity
         onPress={onPress}
-        onLongPress={onLongPress}
+        {...longPressFor(onLongPress, Boolean(menuActions?.length))}
         style={{ opacity: card.dimmed ? 0.5 : 1 }}
       >
         <View style={{ flexDirection: "row", alignItems: "flex-start" }}>

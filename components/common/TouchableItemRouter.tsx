@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   type TouchableOpacityProps,
 } from "react-native";
+import { longPressFor } from "@/components/cards/Card";
 import useRouter from "@/hooks/useAppRouter";
 import { useItemLongPress } from "@/hooks/useItemActionSheet";
 import type { ItemActionKey } from "@/utils/itemActions";
@@ -208,7 +209,10 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
         onAction={handleMenuAction}
       >
         <TouchableOpacity
-          onLongPress={nativeMenu ? undefined : showActionSheet}
+          {...longPressFor(
+            nativeMenu ? undefined : showActionSheet,
+            nativeMenu,
+          )}
           onPress={handlePress}
           {...props}
         >

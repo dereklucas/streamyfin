@@ -53,6 +53,13 @@ export type ItemActionKey =
 export interface ItemMenuAction {
   key: ItemActionKey;
   label: string;
+  /**
+   * Where the native context menu puts it: the icon row on top, the list
+   * under it, or apart at the end in red.
+   */
+  group: "quick" | "primary" | "destructive";
+  /** The label under the icon in the quick row, where a long one wraps. */
+  shortLabel?: string;
   /** SF Symbol for the native context menu. iOS 16-safe names only. */
   systemImage: string;
   destructive?: boolean;
@@ -98,6 +105,7 @@ export const itemMenuActions = (
             key: "shuffle" as const,
             label: t("player.shuffle"),
             systemImage: "shuffle",
+            group: "primary" as const,
           },
         ]
       : []),
@@ -105,30 +113,40 @@ export const itemMenuActions = (
       ? {
           key: "unplayed",
           label: t("common.mark_as_not_played"),
+          shortLabel: t("item_card.menu.mark_unwatched"),
           systemImage: "circle",
+          group: "quick",
         }
       : {
           key: "played",
           label: t("common.mark_as_played"),
+          shortLabel: t("item_card.menu.mark_watched"),
           systemImage: "checkmark.circle",
+          group: "quick",
         },
     isFavorite
       ? {
           key: "favorite",
           label: t("music.track_options.remove_from_favorites"),
+          shortLabel: t("item_card.menu.unfavorite"),
           systemImage: "heart.slash",
+          group: "quick",
         }
       : {
           key: "favorite",
           label: t("music.track_options.add_to_favorites"),
+          shortLabel: t("item_card.menu.favorite"),
           systemImage: "heart",
+          group: "quick",
         },
     ...(offerDownload
       ? [
           {
             key: "download" as const,
             label: downloadLabel(item.Type, t),
+            shortLabel: t("item_card.menu.download"),
             systemImage: "arrow.down.circle",
+            group: "quick" as const,
           },
         ]
       : []),
@@ -139,6 +157,7 @@ export const itemMenuActions = (
             label: t("home.downloads.delete_download"),
             systemImage: "trash",
             destructive: true,
+            group: "destructive" as const,
           },
         ]
       : []),

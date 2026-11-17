@@ -8,6 +8,7 @@ import {
 } from "@/components/common/NativeContextMenu";
 import { Text } from "@/components/common/Text";
 import { Colors } from "@/constants/Colors";
+import { CONTEXT_MENU_LONG_PRESS_GUARD_MS } from "@/constants/Values";
 import { CardArtwork } from "./CardArtwork";
 import {
   CARD_LAYOUTS,
@@ -15,6 +16,7 @@ import {
   type CardKind,
   type CardSlots,
 } from "./CardData";
+import { CardMenuPreview } from "./CardMenuPreview";
 
 type CardProps = {
   card: CardData;
@@ -70,6 +72,8 @@ const CardComponent: React.FC<CardProps> = ({
     [onMenuAction, card.id],
   );
 
+  const hasMenu = Boolean(menuActions?.length);
+
   const progressBar = progress > 0 && (
     <View
       style={{
@@ -91,10 +95,16 @@ const CardComponent: React.FC<CardProps> = ({
   );
 
   return (
-    <NativeContextMenu actions={menuActions ?? []} onAction={handleMenuAction}>
+    <NativeContextMenu
+      actions={menuActions ?? []}
+      onAction={handleMenuAction}
+      preview={
+        hasMenu ? <CardMenuPreview card={card} kind={kind} /> : undefined
+      }
+    >
       <TouchableOpacity
         onPress={handlePress}
-        onLongPress={onLongPress ? handleLongPress : undefined}
+        {...longPressFor(onLongPress ? handleLongPress : undefined, hasMenu)}
         style={{ width: cardWidth, opacity: card.dimmed ? 0.5 : 1 }}
       >
         <View>
@@ -185,5 +195,22 @@ const CardComponent: React.FC<CardProps> = ({
     </NativeContextMenu>
   );
 };
+
+// Taken so the press stops being a tap; the native menu does the rest.
+const ignoreLongPress = () => {};
+
+/**
+ * The long press of something that may carry a native context menu. With one,
+ * a hold past the guard is a long press: React Native never sends a press
+ * after a long press, so a finger lifted while the system menu comes up does
+ * not open what is under it. Spec: components/cards/Card.test.tsx.
+ */
+export const longPressFor = (
+  onLongPress: (() => void) | undefined,
+  hasMenu: boolean,
+) => ({
+  onLongPress: onLongPress ?? (hasMenu ? ignoreLongPress : undefined),
+  delayLongPress: hasMenu ? CONTEXT_MENU_LONG_PRESS_GUARD_MS : undefined,
+});
 
 export const Card = memo(CardComponent, isEqual);

@@ -19,10 +19,13 @@ struct HeroItem: Identifiable, Equatable, Decodable {
   let communityRating: Double?
   /// Watch progress in 0...1; renders a progress bar when > 0.
   let progress: Double?
+  /// The card's long-press context menu, the same actions as a poster's.
+  let menuActions: [HeroMenuAction]
 
   private enum CodingKeys: String, CodingKey {
     case id, title, subtitle, overview, label, labelIcon
     case backdropUrl, logoUrl, posterUrl, badges, communityRating, progress
+    case menuActions
   }
 
   init(from decoder: Decoder) throws {
@@ -41,7 +44,24 @@ struct HeroItem: Identifiable, Equatable, Decodable {
       Double.self, forKey: .communityRating)
     progress = try container.decodeIfPresent(Double.self, forKey: .progress)
       .map { min(max($0, 0), 1) }
+    menuActions = try container.decodeIfPresent(
+      [HeroMenuAction].self, forKey: .menuActions) ?? []
   }
+}
+
+/// One long-press menu action, as `components/common/NativeContextMenu`
+/// describes them. Labels arrive pre-localized.
+struct HeroMenuAction: Identifiable, Equatable, Decodable {
+  let key: String
+  let label: String
+  /// The quick row's label under the icon.
+  let shortLabel: String?
+  let systemImage: String?
+  /// "quick", "primary", "nav" or "destructive".
+  let group: String?
+  let destructive: Bool?
+
+  var id: String { key }
 }
 
 /// One row of the filter menu. Labels arrive pre-localized.
@@ -90,6 +110,7 @@ class HeroCarouselExpoView: ExpoView {
 
   let onItemPress = EventDispatcher()
   let onFilterToggle = EventDispatcher()
+  let onMenuAction = EventDispatcher()
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -105,6 +126,9 @@ class HeroCarouselExpoView: ExpoView {
       },
       onFilterToggle: { [weak self] key in
         self?.onFilterToggle(["key": key])
+      },
+      onMenuAction: { [weak self] itemId, key in
+        self?.onMenuAction(["id": itemId, "key": key])
       }
     )
     let hostingController = UIHostingController(rootView: root)

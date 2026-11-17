@@ -19,6 +19,7 @@ export const ItemCollections: React.FC<ItemCollectionsProps> = ({
   // that appears and then collapses moves the page under the user's finger.
   return (
     <CardRow
+      enableActionSheet
       {...props}
       title={t("item_card.collections")}
       kind='portrait'

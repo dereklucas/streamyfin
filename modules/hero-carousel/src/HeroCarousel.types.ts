@@ -18,6 +18,26 @@ export type HeroCarouselItem = {
   communityRating?: number | null;
   /** Watch progress in 0–1; renders a progress bar when > 0. */
   progress?: number | null;
+  /**
+   * The card's long-press context menu (iOS), the same actions a poster has.
+   * Empty or omitted, the card has no menu.
+   */
+  menuActions?: HeroCarouselMenuAction[];
+};
+
+/** One context menu action, as `NativeContextMenuAction` describes them. */
+export type HeroCarouselMenuAction = {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  systemImage?: string;
+  group?: "quick" | "primary" | "nav" | "destructive";
+  destructive?: boolean;
+};
+
+export type HeroCarouselMenuActionEvent = {
+  id: string;
+  key: string;
 };
 
 /** One row in the filter menu. */
@@ -69,6 +89,8 @@ export type HeroCarouselViewProps = {
    */
   maxFontScale?: number | null;
   onItemPress?: (event: { nativeEvent: HeroCarouselItemPressEvent }) => void;
+  /** Fires with the card's item id and the chosen menu action's key. */
+  onMenuAction?: (event: { nativeEvent: HeroCarouselMenuActionEvent }) => void;
   /** Fires with the toggled row's `key`; the caller owns the new state. */
   onFilterToggle?: (event: {
     nativeEvent: HeroCarouselFilterToggleEvent;

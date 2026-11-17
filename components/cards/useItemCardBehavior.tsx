@@ -2,23 +2,15 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { useSegments } from "expo-router";
 import { useAtomValue } from "jotai";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import { ItemActionRunner } from "@/components/common/ItemActionRunner";
 import { ItemActionSheetHost } from "@/components/common/ItemActionSheetHost";
-import {
-  hasNativeContextMenu,
-  type NativeContextMenuAction,
-} from "@/components/common/NativeContextMenu";
+import { hasNativeContextMenu } from "@/components/common/NativeContextMenu";
 import {
   getItemNavigation,
   itemRouter,
 } from "@/components/common/TouchableItemRouter";
 import useRouter from "@/hooks/useAppRouter";
-import { favoritesAtom } from "@/hooks/useFavorite";
-import { useDownload } from "@/providers/DownloadProvider";
-import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
-import { useOfflineMode } from "@/providers/OfflineModeProvider";
-import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
+import { useItemMenus } from "@/hooks/useItemMenus";
+import { apiAtom } from "@/providers/JellyfinProvider";
 import { buildItemCards, type CardData, type CardKind } from "./CardData";
 
 type Options = {
@@ -68,17 +60,7 @@ export function useItemCardBehavior({
   enableActionSheet = false,
 }: Options) {
   const api = useAtomValue(apiAtom);
-  const { t } = useTranslation();
-  const isOffline = useOfflineMode();
-  // One subscription per row for the menus' state, not one per poster.
-  const favorites = useAtomValue(favoritesAtom);
-  const user = useAtomValue(userAtom);
-  const canDownload = Boolean(user?.Policy?.EnableContentDownloading);
-  const { downloadedItems } = useDownload();
-  const downloadedIds = useMemo(
-    () => new Set((downloadedItems ?? []).map((d) => d.item.Id)),
-    [downloadedItems],
-  );
+  const { menuActionsFor, handleMenuAction, runner } = useItemMenus(items);
   const router = useRouter();
   const segments = useSegments();
   // Each long press is its own request, so a press always mounts a new host.
@@ -180,38 +162,6 @@ export function useItemCardBehavior({
     !onLongPressItem &&
     !onLongPressId;
 
-  const menuActionsFor = useCallback(
-    (id: string): NativeContextMenuAction[] | undefined => {
-      const item = itemsRef.current?.find((i) => i.Id === id);
-      if (!item) return undefined;
-      return itemMenuActions(item, {
-        t,
-        isOffline,
-        isFavorite: Boolean(favorites[id] ?? item.UserData?.IsFavorite),
-        isDownloaded: downloadedIds.has(id),
-        canDownload,
-      });
-    },
-    [t, isOffline, favorites, downloadedIds, canDownload],
-  );
-
-  // Each choice is its own run, so choosing the same action twice runs twice.
-  const [actionRun, setActionRun] = useState<{
-    item: BaseItemDto;
-    action: ItemActionKey;
-    id: number;
-  } | null>(null);
-  const handleMenuAction = useCallback((id: string, key: string) => {
-    const item = itemsRef.current?.find((i) => i.Id === id);
-    if (!item) return;
-    setActionRun((prev) => ({
-      item,
-      action: key as ItemActionKey,
-      id: (prev?.id ?? 0) + 1,
-    }));
-  }, []);
-  const closeActionRun = useCallback(() => setActionRun(null), []);
-
   // Only media items have a played/favorite state to act on — but a screen
   // that handles the long press itself always gets it.
   const allowLongPress =
@@ -236,14 +186,7 @@ export function useItemCardBehavior({
             onClose={closeActionSheet}
           />
         ) : null}
-        {actionRun ? (
-          <ItemActionRunner
-            key={actionRun.id}
-            item={actionRun.item}
-            action={actionRun.action}
-            onDone={closeActionRun}
-          />
-        ) : null}
+        {runner}
       </>
     ),
   };

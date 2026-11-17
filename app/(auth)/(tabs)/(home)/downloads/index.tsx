@@ -38,13 +38,7 @@ export default function DownloadsPage() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const [_queue, _setQueue] = useAtom(queueAtom);
-  const {
-    downloadedItems,
-    deleteFile,
-    deleteItems,
-    deleteFileByType,
-    deleteAllFiles,
-  } = useDownload();
+  const { downloadedItems, deleteFileByType, deleteAllFiles } = useDownload();
   const confirmDelete = useConfirmDelete();
   const router = useRouter();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -134,6 +128,23 @@ export default function DownloadsPage() {
     () => buildDownloadedCards(otherItems),
     [otherItems],
   );
+  // Each card stands for its series, so its long-press menu is the series':
+  // shuffle its downloaded episodes, delete them all.
+  const seriesItems = useMemo(
+    () =>
+      seriesGroups.flatMap((group): BaseItemDto[] =>
+        group[0]?.SeriesId
+          ? [
+              {
+                Id: group[0].SeriesId,
+                Type: "Series",
+                Name: group[0].SeriesName,
+              },
+            ]
+          : [],
+      ),
+    [seriesGroups],
+  );
   const seriesCards = useMemo(
     () => buildSeriesGroupCards(seriesGroups),
     [seriesGroups],
@@ -172,33 +183,6 @@ export default function DownloadsPage() {
       },
     }),
     [episodesBySeriesId],
-  );
-
-  const confirmDeleteItem = useCallback(
-    (item: BaseItemDto) => {
-      if (!item.Id) return;
-      confirmDelete({
-        title: item.Name ?? undefined,
-        onConfirm: () => deleteFile(item.Id!),
-      });
-    },
-    [confirmDelete, deleteFile],
-  );
-
-  const confirmDeleteSeries = useCallback(
-    (seriesId: string) => {
-      const episodes = episodesBySeriesId.get(seriesId);
-      if (!episodes?.length) return;
-      confirmDelete({
-        title: episodes[0].SeriesName ?? undefined,
-        message: t("player.episode_count", { count: episodes.length }),
-        onConfirm: () =>
-          deleteItems(
-            episodes.map((e) => e.Id).filter((id) => id !== undefined),
-          ),
-      });
-    },
-    [confirmDelete, deleteItems, episodesBySeriesId, t],
   );
 
   const countPill = useCallback(
@@ -304,7 +288,7 @@ export default function DownloadsPage() {
               cards={movieCards}
               slots={itemSizeSlot}
               footerHeight={CARD_FOOTER_HEIGHT}
-              onLongPressItem={confirmDeleteItem}
+              enableActionSheet
             />
           )}
 
@@ -315,7 +299,9 @@ export default function DownloadsPage() {
               headerAccessory={countPill(groupedBySeries.length)}
               kind='portrait'
               textPlacement='below'
+              items={seriesItems}
               cards={seriesCards}
+              enableActionSheet
               slots={seriesSizeSlot}
               footerHeight={CARD_FOOTER_HEIGHT}
               // The series page has to be told it is offline; the shared
@@ -326,7 +312,6 @@ export default function DownloadsPage() {
                   params: { id, offline: "true" },
                 })
               }
-              onLongPressId={confirmDeleteSeries}
             />
           )}
 
@@ -341,7 +326,7 @@ export default function DownloadsPage() {
               cards={otherCards}
               slots={itemSizeSlot}
               footerHeight={CARD_FOOTER_HEIGHT}
-              onLongPressItem={confirmDeleteItem}
+              enableActionSheet
             />
           )}
 

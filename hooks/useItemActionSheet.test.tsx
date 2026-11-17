@@ -4,7 +4,7 @@ import type {
 } from "@jellyfin/sdk/lib/generated-client/models";
 import { renderHook } from "@testing-library/react-native";
 import { showActionSheetWithOptions } from "@/test-utils/actionSheet";
-import { useItemActionSheet } from "./useItemActionSheet";
+import { useItemActionSheet, useItemActions } from "./useItemActionSheet";
 
 type SheetCallback = (selectedIndex?: number) => void | Promise<void>;
 
@@ -22,8 +22,29 @@ jest.mock("@/hooks/useMarkAsPlayed", () => ({
 jest.mock("@/hooks/useFavorite", () => ({
   useFavorite: () => ({ isFavorite: false, toggleFavorite: () => {} }),
 }));
+const mockDeleteFile = jest.fn();
+const mockDeleteItems = jest.fn(async (_ids: string[]) => {});
+const episodeOf = (id: string, seriesId: string, season: number) => ({
+  item: {
+    Id: id,
+    Type: "Episode",
+    SeriesId: seriesId,
+    ParentIndexNumber: season,
+  },
+});
+const mockDownloads = [
+  episodeOf("s1e1", "series-1", 1),
+  episodeOf("s1e2", "series-1", 1),
+  episodeOf("s2e1", "series-1", 2),
+  episodeOf("other", "series-2", 1),
+];
 jest.mock("@/providers/DownloadProvider", () => ({
-  useDownload: () => ({ deleteFile: () => {}, downloadedItems: [] }),
+  useDownload: () => ({
+    deleteFile: (id: string) => mockDeleteFile(id),
+    deleteItems: (ids: string[]) => mockDeleteItems(ids),
+    downloadedItems: [],
+    getDownloadedItems: () => mockDownloads,
+  }),
 }));
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
@@ -217,5 +238,47 @@ describe("useItemActionSheet", () => {
         params: expect.objectContaining({ id: "series-1", seasonIndex: "2" }),
       }),
     );
+  });
+
+  // A downloaded series or season has no file of its own: deleting its
+  // download means deleting its downloaded episodes.
+  test("deletes every downloaded episode of a series", async () => {
+    const series: BaseItemDto = { Id: "series-1", Type: "Series" };
+    const { result } = await renderHook(() => useItemActions(series));
+
+    await result.current.run("delete");
+
+    expect(mockDeleteItems.mock.calls[0][0].sort()).toEqual([
+      "s1e1",
+      "s1e2",
+      "s2e1",
+    ]);
+    expect(mockDeleteFile).not.toHaveBeenCalled();
+  });
+
+  test("deletes the downloaded episodes of one season", async () => {
+    mockDeleteItems.mockClear();
+    const season: BaseItemDto = {
+      Id: "season-1",
+      Type: "Season",
+      SeriesId: "series-1",
+      IndexNumber: 1,
+    };
+    const { result } = await renderHook(() => useItemActions(season));
+
+    await result.current.run("delete");
+
+    expect(mockDeleteItems.mock.calls[0][0].sort()).toEqual(["s1e1", "s1e2"]);
+  });
+
+  test("deletes a movie's own download", async () => {
+    mockDeleteFile.mockClear();
+    const { result } = await renderHook(() =>
+      useItemActions({ Id: "m1", Type: "Movie" }),
+    );
+
+    await result.current.run("delete");
+
+    expect(mockDeleteFile).toHaveBeenCalledWith("m1");
   });
 });

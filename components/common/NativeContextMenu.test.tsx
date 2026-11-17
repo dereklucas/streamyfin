@@ -1,4 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react-native";
 import { Platform, Text } from "react-native";
 import { NativeContextMenu } from "./NativeContextMenu";
 
@@ -55,5 +60,62 @@ describe("NativeContextMenu", () => {
     );
 
     expect(screen.queryByTestId("swiftui-context-menu")).toBeNull();
+  });
+
+  test("puts quick actions in the icon row with their short labels, and destructive ones last", async () => {
+    Platform.OS = "ios";
+    await render(
+      <NativeContextMenu
+        actions={[
+          {
+            key: "delete",
+            label: "Delete download",
+            systemImage: "trash",
+            destructive: true,
+            group: "destructive",
+          },
+          {
+            key: "favorite",
+            label: "Add to favorites",
+            shortLabel: "Favorite",
+            systemImage: "heart",
+            group: "quick",
+          },
+          {
+            key: "shuffle",
+            label: "Shuffle",
+            systemImage: "shuffle",
+            group: "primary",
+          },
+        ]}
+        onAction={() => {}}
+      >
+        <Text>Poster</Text>
+      </NativeContextMenu>,
+    );
+
+    const row = screen.getByTestId("swiftui-control-group");
+    expect(within(row).getByText("Favorite")).toBeTruthy();
+    expect(screen.queryByText("Add to favorites")).toBeNull();
+    const rows = screen
+      .getAllByRole("menuitem")
+      .map((row) => row.props.children);
+    expect(rows).toEqual(["Favorite", "Shuffle", "Delete download"]);
+    expect(screen.getByTestId("swiftui-divider")).toBeTruthy();
+  });
+
+  test("shows the preview it is given", async () => {
+    Platform.OS = "ios";
+    await render(
+      <NativeContextMenu
+        actions={ACTIONS}
+        onAction={() => {}}
+        preview={<Text>Big poster</Text>}
+      >
+        <Text>Poster</Text>
+      </NativeContextMenu>,
+    );
+
+    expect(screen.getByText("Big poster")).toBeTruthy();
   });
 });

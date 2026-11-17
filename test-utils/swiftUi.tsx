@@ -94,6 +94,11 @@ export const swiftUiModule = {
       ),
     },
   ),
+  // The icon row a menu shows on top; its buttons are rows inside it.
+  ControlGroup: ({ children }: { children?: React.ReactNode }) => (
+    <Box testID='swiftui-control-group'>{children}</Box>
+  ),
+  Divider: () => <Box testID='swiftui-divider' />,
   RNHostView: ({ children }: { children: React.ReactNode }) => (
     <Box>{children}</Box>
   ),

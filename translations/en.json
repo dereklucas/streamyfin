@@ -1007,6 +1007,13 @@
     "select_season": "Select season",
     "no_episodes_for_this_season": "No episodes for this season",
     "no_episodes_to_shuffle": "No episodes to shuffle",
+    "menu": {
+      "mark_watched": "Watched",
+      "mark_unwatched": "Unwatched",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
+      "download": "Download"
+    },
     "episodes_load_failed": "Couldn't load the episodes.",
     "missing": "Missing",
     "not_yet_aired": "Not yet aired",

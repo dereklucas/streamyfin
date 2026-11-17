@@ -72,3 +72,18 @@ export const BACKGROUND_IMAGE_TRANSITION: ImageTransition = {
  * beside the season dropdown on the phone and tablet series page.
  */
 export const SEASON_ICON_SIZE = 18;
+
+/**
+ * How long a press on something with a native context menu takes to count as
+ * a long press, in ms. Under the system menu's own (about 500 ms): React
+ * Native never sends a press after a long press, so a finger lifted while the
+ * menu is coming up no longer opens what is under it.
+ */
+export const CONTEXT_MENU_LONG_PRESS_GUARD_MS = 300;
+
+/**
+ * The width of a poster's context menu preview, by artwork shape. iPad's are
+ * scaled up by `CONTEXT_MENU_PREVIEW_PAD_SCALE`.
+ */
+export const CONTEXT_MENU_PREVIEW_WIDTH = { tall: 240, wide: 340 } as const;
+export const CONTEXT_MENU_PREVIEW_PAD_SCALE = 1.35;

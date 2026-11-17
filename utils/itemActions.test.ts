@@ -133,3 +133,36 @@ describe("itemMenuActions", () => {
     expect(itemMenuActions(item(type), base)).toEqual([]);
   });
 });
+
+describe("itemMenuActions groups", () => {
+  const groups = (it: BaseItemDto, extra = {}) =>
+    Object.fromEntries(
+      itemMenuActions(it, { ...base, ...extra }).map((a) => [a.key, a.group]),
+    );
+
+  test("puts played state, favorite and download in the quick row", () => {
+    expect(groups(item("Movie"))).toEqual({
+      played: "quick",
+      favorite: "quick",
+      download: "quick",
+    });
+  });
+
+  test("keeps Shuffle in the list and deleting the download apart, last", () => {
+    expect(groups(item("Series"), { isDownloaded: true })).toMatchObject({
+      shuffle: "primary",
+      delete: "destructive",
+    });
+  });
+
+  test("gives quick-row actions a short label", () => {
+    for (const action of itemMenuActions(item("Movie"), base)) {
+      if (action.group === "quick") expect(action.shortLabel).toBeTruthy();
+    }
+    const favorite = itemMenuActions(item("Movie"), {
+      ...base,
+      isFavorite: true,
+    }).find((a) => a.key === "favorite");
+    expect(favorite?.shortLabel).toBe("item_card.menu.unfavorite");
+  });
+});

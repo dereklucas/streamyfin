@@ -1,4 +1,11 @@
-import { Button, ContextMenu, Host, RNHostView } from "@expo/ui/swift-ui";
+import {
+  Button,
+  ContextMenu,
+  ControlGroup,
+  Divider,
+  Host,
+  RNHostView,
+} from "@expo/ui/swift-ui";
 import type React from "react";
 import { useEffect } from "react";
 import { Platform } from "react-native";
@@ -10,12 +17,24 @@ export interface NativeContextMenuAction {
   /** SF Symbol. iOS 16-safe names only: the deployment target is 16.4. */
   systemImage?: string;
   destructive?: boolean;
+  /**
+   * "quick" goes in the icon row on top (as Music's Download, Favorite,
+   * Share), "destructive" apart at the end. Default: the list.
+   */
+  group?: "quick" | "primary" | "destructive";
+  /** The quick row's label under the icon, where a long one wraps. */
+  shortLabel?: string;
 }
 
 type Props = {
   actions: readonly NativeContextMenuAction[];
   onAction: (key: string) => void;
   children: React.ReactElement;
+  /**
+   * Shown lifted above the menu in place of the content itself, as Music's
+   * album card. Mounted with the content, so keep it light.
+   */
+  preview?: React.ReactElement;
 };
 
 /**
@@ -31,6 +50,7 @@ export const NativeContextMenu: React.FC<Props> = ({
   actions,
   onAction,
   children,
+  preview,
 }) => {
   const native = hasNativeContextMenu() && actions.length > 0;
   useEffect(() => {
@@ -39,28 +59,54 @@ export const NativeContextMenu: React.FC<Props> = ({
 
   if (!native) return children;
 
+  const groupOf = (action: NativeContextMenuAction) =>
+    action.group ?? (action.destructive ? "destructive" : "primary");
+  const quick = actions.filter((action) => groupOf(action) === "quick");
+  const primary = actions.filter((action) => groupOf(action) === "primary");
+  const destructive = actions.filter(
+    (action) => groupOf(action) === "destructive",
+  );
+
+  const button = (action: NativeContextMenuAction, label = action.label) => (
+    <Button
+      key={action.key}
+      label={label}
+      systemImage={action.systemImage as never}
+      role={action.destructive ? "destructive" : "default"}
+      onPress={() => {
+        writeInfoLog("Context menu action chosen", { key: action.key });
+        onAction(action.key);
+      }}
+    />
+  );
+
   return (
     // Both size to the content: the Host takes the poster's size in the React
     // Native layout, and the RNHostView inside it the poster's own.
     <Host matchContents>
       <ContextMenu>
         <ContextMenu.Items>
-          {actions.map((action) => (
-            <Button
-              key={action.key}
-              label={action.label}
-              systemImage={action.systemImage as never}
-              role={action.destructive ? "destructive" : "default"}
-              onPress={() => {
-                writeInfoLog("Context menu action chosen", { key: action.key });
-                onAction(action.key);
-              }}
-            />
-          ))}
+          {quick.length > 0 ? (
+            <ControlGroup>
+              {quick.map((action) =>
+                button(action, action.shortLabel ?? action.label),
+              )}
+            </ControlGroup>
+          ) : null}
+          {primary.map((action) => button(action))}
+          {destructive.length > 0 && quick.length + primary.length > 0 ? (
+            <Divider />
+          ) : null}
+          {destructive.map((action) => button(action))}
         </ContextMenu.Items>
         <ContextMenu.Trigger>
           <RNHostView matchContents>{children}</RNHostView>
         </ContextMenu.Trigger>
+        {preview ? (
+          <ContextMenu.Preview>
+            <RNHostView matchContents>{preview}</RNHostView>
+          </ContextMenu.Preview>
+        ) : null}
       </ContextMenu>
     </Host>
   );

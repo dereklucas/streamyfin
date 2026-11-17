@@ -95,6 +95,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   config.extra = { ...config.extra, build: buildMeta };
 
+  // Fork: the custom iOS build computes the source fingerprint before prebuild
+  // and pins the runtime version to it (.eas/build/ios-production.yml), the
+  // same hash the workflow and every update compute. Left to the fingerprint
+  // policy after prebuild, Xcode hashed the generated project instead.
+  if (process.env.FORK_RUNTIME_VERSION) {
+    config.runtimeVersion = process.env.FORK_RUNTIME_VERSION;
+  }
+
   // A repack (scripts/ci) passes the build number of the IPA it starts from:
   // repack-app writes the config's, or "1", into the app and its extensions,
   // and an EAS build's number would be lost.

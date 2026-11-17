@@ -18,8 +18,29 @@ build:
         name: Install dependencies (bun, frozen)
         command: bun install --frozen-lockfile
 
+    # Resolves the job (credentials, version, update config) on the build
+    # machine. EAS's own build runs it first; a build started from a workflow
+    # gets no signing credentials without it, as only EAS CLI resolves the job
+    # beforehand.
+    - eas/resolve_build_config
+
     - eas/resolve_apple_team_id_from_credentials:
         id: resolve_team
+
+    # The runtime version is the fingerprint of the source, computed here
+    # before prebuild: the same hash the workflow's fingerprint job and every
+    # update compute. app.config.ts pins the runtime version to it, so prebuild
+    # writes it into Expo.plist as is. Left to the fingerprint policy, Xcode
+    # hashed the prebuilt project instead (build 2: 941b9b0 for a 7d4d1de
+    # source), and no update ever matched the build.
+    - run:
+        name: Pin runtime version to the source fingerprint
+        command: |
+          HASH=$(bun x fingerprint fingerprint:generate --platform ios \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).hash))')
+          if [ -z "$HASH" ]; then echo "Could not compute the fingerprint" >&2; exit 1; fi
+          echo "Runtime version: $HASH"
+          set-env FORK_RUNTIME_VERSION "$HASH"
 
     # android/ + ios/ are gitignored, so generate native code fresh.
     # EXPO_TV (from the profile env) selects iPhone vs tvOS. --no-install
@@ -36,15 +57,7 @@ build:
     # Writes the update channel (eas.json) and runtime version into the app's
     # Expo.plist, as EAS's default iOS build does after pod install. Without
     # it the build asks for updates under no channel and is never served one.
-    #
-    # The runtime version is passed in explicitly: it is the fingerprint EAS
-    # CLI computed from the source, the same one the workflow's fingerprint
-    # job and every update use. Resolved here it comes out undefined, and the
-    # fingerprint policy then has Xcode compute one from the prebuilt project,
-    # which matches nothing (build 2 shipped as 941b9b0 for a 7d4d1de source).
-    - eas/configure_eas_update:
-        inputs:
-          runtime_version: ${ eas.job.version.runtimeVersion }
+    - eas/configure_eas_update
 
     - eas/configure_ios_credentials
     - eas/configure_ios_version

@@ -177,3 +177,30 @@ test("leaves the build number alone outside a repack", () => {
   } as ConfigContext);
   expect(resolved.ios?.buildNumber).toBe(appJson.expo.ios?.buildNumber);
 });
+
+// Fork: the custom iOS build computes the source fingerprint before prebuild
+// and pins the runtime version to it (.eas/build/ios-production.yml). Left
+// to the fingerprint policy, Xcode computed one from the prebuilt project,
+// which matched no update.
+test("pins the runtime version to the build's source fingerprint", () => {
+  const previous = process.env.FORK_RUNTIME_VERSION;
+  process.env.FORK_RUNTIME_VERSION = "67010b4cb29a367f044edadc34eae50f041289f5";
+  try {
+    const resolved = resolveConfig({
+      config: structuredClone(appJson.expo),
+    } as ConfigContext);
+    expect(resolved.runtimeVersion).toBe(
+      "67010b4cb29a367f044edadc34eae50f041289f5",
+    );
+  } finally {
+    if (previous === undefined) delete process.env.FORK_RUNTIME_VERSION;
+    else process.env.FORK_RUNTIME_VERSION = previous;
+  }
+});
+
+test("keeps the fingerprint policy everywhere else", () => {
+  const resolved = resolveConfig({
+    config: structuredClone(appJson.expo),
+  } as ConfigContext);
+  expect(resolved.runtimeVersion).toEqual({ policy: "fingerprint" });
+});

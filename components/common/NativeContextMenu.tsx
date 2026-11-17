@@ -1,6 +1,8 @@
 import { Button, ContextMenu, Host, RNHostView } from "@expo/ui/swift-ui";
 import type React from "react";
+import { useEffect } from "react";
 import { Platform } from "react-native";
+import { writeInfoLog } from "@/utils/log";
 
 export interface NativeContextMenuAction {
   key: string;
@@ -30,7 +32,12 @@ export const NativeContextMenu: React.FC<Props> = ({
   onAction,
   children,
 }) => {
-  if (!hasNativeContextMenu() || actions.length === 0) return children;
+  const native = hasNativeContextMenu() && actions.length > 0;
+  useEffect(() => {
+    if (native) logOnce("Native context menus in use", platformDetails());
+  }, [native]);
+
+  if (!native) return children;
 
   return (
     // Both size to the content: the Host takes the poster's size in the React
@@ -44,7 +51,10 @@ export const NativeContextMenu: React.FC<Props> = ({
               label={action.label}
               systemImage={action.systemImage as never}
               role={action.destructive ? "destructive" : "default"}
-              onPress={() => onAction(action.key)}
+              onPress={() => {
+                writeInfoLog("Context menu action chosen", { key: action.key });
+                onAction(action.key);
+              }}
             />
           ))}
         </ContextMenu.Items>
@@ -59,3 +69,23 @@ export const NativeContextMenu: React.FC<Props> = ({
 /** Whether `NativeContextMenu` draws a native menu on this platform. */
 export const hasNativeContextMenu = () =>
   Platform.OS === "ios" && !Platform.isTV;
+
+/**
+ * What decides whether a long press gets the native menu, for the log:
+ * Settings → Logs, or the Developer screen's shared diagnostics.
+ */
+export const platformDetails = () => ({
+  os: Platform.OS,
+  version: Platform.Version,
+  isTV: Platform.isTV,
+  isPad: Platform.OS === "ios" ? Platform.isPad : undefined,
+  nativeContextMenu: hasNativeContextMenu(),
+});
+
+const logged = new Set<string>();
+// Once per launch: every poster renders a menu.
+const logOnce = (message: string, data: unknown) => {
+  if (logged.has(message)) return;
+  logged.add(message);
+  writeInfoLog(message, data);
+};

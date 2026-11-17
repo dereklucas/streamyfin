@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { getShowApi } from "@jellyfin/sdk/lib/utils/api";
 import { useQuery } from "@tanstack/react-query";
@@ -6,11 +5,13 @@ import { atom, useAtom } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TouchableOpacity, View } from "react-native";
+import { HeaderIcon } from "@/components/common/HeaderIcon";
 import {
   SeasonDropdown,
   type SeasonIndexState,
 } from "@/components/series/SeasonDropdown";
 import { SyncPlayQueueButton } from "@/components/syncplay/SyncPlayQueueButton";
+import { SEASON_ICON_SIZE } from "@/constants/Values";
 import { useEpisodeAirLabels } from "@/hooks/useEpisodeAirLabels";
 import { playableQueueItems, useShuffleQueue } from "@/hooks/useShuffleQueue";
 import { useDownload } from "@/providers/DownloadProvider";
@@ -284,11 +285,7 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             className='ml-2'
           >
-            <MaterialCommunityIcons
-              name='shuffle-variant'
-              size={22}
-              color='white'
-            />
+            <HeaderIcon name='shuffle' size={SEASON_ICON_SIZE} />
           </TouchableOpacity>
         ) : null}
       </View>

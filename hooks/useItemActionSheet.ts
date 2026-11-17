@@ -1,8 +1,5 @@
-import type {
-  BaseItemDto,
-  BaseItemKind,
-} from "@jellyfin/sdk/lib/generated-client/models";
-import { useCallback } from "react";
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useActionSheet } from "@/hooks/useActionSheet";
 import { useFavorite } from "@/hooks/useFavorite";
@@ -10,19 +7,101 @@ import { useMarkAsPlayed } from "@/hooks/useMarkAsPlayed";
 import { useShuffleSeries } from "@/hooks/useShuffleSeries";
 import { useDownload } from "@/providers/DownloadProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
+import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
 
-// What the sheet opens for. The containers (Series, Season, BoxSet, Folder) go
-// through the same played call as a single video: the server walks down from
-// the id it is given and marks every child.
-const ACTION_SHEET_ITEM_TYPES: ReadonlySet<BaseItemKind> = new Set([
-  "Movie",
-  "Episode",
-  "Video",
-  "Series",
-  "Season",
-  "BoxSet",
-  "Folder",
-]);
+/**
+ * Runs the long-press actions of one item (see `itemMenuActions`), by key.
+ * Shared by the action sheet and the native context menu's runner.
+ */
+export function useItemActions(item: BaseItemDto) {
+  const markAsPlayedStatus = useMarkAsPlayed([item]);
+  const { isFavorite, toggleFavorite } = useFavorite(item);
+  const isOffline = useOfflineMode();
+  const { deleteFile } = useDownload();
+  const shuffleSeries = useShuffleSeries();
+
+  const run = useCallback(
+    async (key: ItemActionKey): Promise<void> => {
+      switch (key) {
+        case "shuffle":
+          await shuffleSeries(item, { isOffline });
+          return;
+        case "played":
+          await markAsPlayedStatus(true);
+          return;
+        case "unplayed":
+          await markAsPlayedStatus(false);
+          return;
+        case "favorite":
+          toggleFavorite();
+          return;
+        case "delete":
+          if (item.Id) deleteFile(item.Id);
+          return;
+      }
+    },
+    [
+      item,
+      isOffline,
+      shuffleSeries,
+      markAsPlayedStatus,
+      toggleFavorite,
+      deleteFile,
+    ],
+  );
+
+  return { run, isFavorite: Boolean(isFavorite), isOffline };
+}
+
+/**
+ * Everything a long press on one item needs: its actions as plain data for
+ * the native context menu, a runner for them, and the action sheet for where
+ * there is no native menu. One set of action hooks serves all three.
+ */
+export function useItemLongPress(item: BaseItemDto) {
+  const { t } = useTranslation();
+  const { showActionSheetWithOptions } = useActionSheet();
+  const { run, isFavorite, isOffline } = useItemActions(item);
+
+  const menuActions = useMemo(
+    () => itemMenuActions(item, { t, isOffline, isFavorite }),
+    [item, t, isOffline, isFavorite],
+  );
+
+  const showActionSheet = useCallback((): Promise<void> => {
+    if (menuActions.length === 0) return Promise.resolve();
+
+    const options = [
+      ...menuActions.map((action) => action.label),
+      t("common.cancel"),
+    ];
+    const cancelButtonIndex = options.length - 1;
+    const destructiveIndex = menuActions.findIndex(
+      (action) => action.destructive,
+    );
+
+    return new Promise<void>((resolve) => {
+      showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex,
+          destructiveButtonIndex:
+            destructiveIndex === -1 ? undefined : destructiveIndex,
+        },
+        async (selectedIndex) => {
+          const action =
+            selectedIndex === undefined
+              ? undefined
+              : menuActions[selectedIndex];
+          if (action) await run(action.key);
+          resolve();
+        },
+      );
+    });
+  }, [showActionSheetWithOptions, run, menuActions, t]);
+
+  return { menuActions, runAction: run, showActionSheet };
+}
 
 /**
  * The long-press action sheet for a media item: shuffle (a series), played
@@ -33,84 +112,5 @@ const ACTION_SHEET_ITEM_TYPES: ReadonlySet<BaseItemKind> = new Set([
  * types present nothing and resolve immediately.
  */
 export function useItemActionSheet(item: BaseItemDto) {
-  const { t } = useTranslation();
-  const { showActionSheetWithOptions } = useActionSheet();
-  const markAsPlayedStatus = useMarkAsPlayed([item]);
-  const { isFavorite, toggleFavorite } = useFavorite(item);
-  const isOffline = useOfflineMode();
-  const { deleteFile } = useDownload();
-  const shuffleSeries = useShuffleSeries();
-
-  return useCallback((): Promise<void> => {
-    if (!item.Type || !ACTION_SHEET_ITEM_TYPES.has(item.Type)) {
-      return Promise.resolve();
-    }
-
-    // Built as a list so an action's place in the sheet is not its identity.
-    const actions: { label: string; run: () => unknown }[] = [
-      ...(item.Type === "Series"
-        ? [
-            {
-              label: t("player.shuffle"),
-              run: () => shuffleSeries(item, { isOffline }),
-            },
-          ]
-        : []),
-      {
-        label: t("common.mark_as_played"),
-        run: () => markAsPlayedStatus(true),
-      },
-      {
-        label: t("common.mark_as_not_played"),
-        run: () => markAsPlayedStatus(false),
-      },
-      {
-        label: isFavorite
-          ? t("music.track_options.remove_from_favorites")
-          : t("music.track_options.add_to_favorites"),
-        run: toggleFavorite,
-      },
-      ...(isOffline && item.Id
-        ? [
-            {
-              label: t("home.downloads.delete_download"),
-              run: () => deleteFile(item.Id!),
-            },
-          ]
-        : []),
-    ];
-    const options = [
-      ...actions.map((action) => action.label),
-      t("common.cancel"),
-    ];
-    const cancelButtonIndex = options.length - 1;
-    const destructiveButtonIndex =
-      isOffline && item.Id ? cancelButtonIndex - 1 : undefined;
-
-    return new Promise<void>((resolve) => {
-      showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex,
-          destructiveButtonIndex,
-        },
-        async (selectedIndex) => {
-          const action =
-            selectedIndex === undefined ? undefined : actions[selectedIndex];
-          await action?.run();
-          resolve();
-        },
-      );
-    });
-  }, [
-    showActionSheetWithOptions,
-    shuffleSeries,
-    item,
-    isFavorite,
-    markAsPlayedStatus,
-    toggleFavorite,
-    isOffline,
-    deleteFile,
-    t,
-  ]);
+  return useItemLongPress(item).showActionSheet;
 }

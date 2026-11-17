@@ -27,6 +27,9 @@ jest.mock("@/components/common/TouchableItemRouter", () => ({
 jest.mock("@/components/common/ItemActionSheetHost", () => ({
   ItemActionSheetHost: () => null,
 }));
+jest.mock("@/components/common/ItemActionRunner", () => ({
+  ItemActionRunner: () => null,
+}));
 jest.mock("./Card", () => ({ Card: () => null }));
 
 const MOVIE: BaseItemDto = {

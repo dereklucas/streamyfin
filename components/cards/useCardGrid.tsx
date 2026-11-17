@@ -50,15 +50,21 @@ export function useCardGrid({
   }, [windowWidth, insets.left, insets.right, columns, layout]);
 
   // The artwork is requested for the column width, not the kind's row width.
-  const { cards, handlePress, handleLongPress, actionSheet } =
-    useItemCardBehavior({
-      items,
-      kind,
-      cardWidth,
-      onPressItem,
-      onLongPressItem,
-      enableActionSheet,
-    });
+  const {
+    cards,
+    handlePress,
+    handleLongPress,
+    menuActionsFor,
+    handleMenuAction,
+    actionSheet,
+  } = useItemCardBehavior({
+    items,
+    kind,
+    cardWidth,
+    onPressItem,
+    onLongPressItem,
+    enableActionSheet,
+  });
 
   // A library can mix poster art with square album art, and a grid row is as
   // tall as its tallest cell — so without a common height the short cards
@@ -105,10 +111,21 @@ export function useCardGrid({
           width={cardWidth}
           onPress={handlePress}
           onLongPress={handleLongPress}
+          menuActions={menuActionsFor?.(item.id)}
+          onMenuAction={handleMenuAction}
         />
       </View>
     ),
-    [cardWidth, cellHeight, columnOffset, kind, handlePress, handleLongPress],
+    [
+      cardWidth,
+      cellHeight,
+      columnOffset,
+      kind,
+      handlePress,
+      handleLongPress,
+      menuActionsFor,
+      handleMenuAction,
+    ],
   );
 
   const keyExtractor = useCallback((card: CardData) => card.id, []);

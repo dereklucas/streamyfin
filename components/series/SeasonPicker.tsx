@@ -201,14 +201,20 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
     }));
   }, [episodes, api, episodeById]);
 
-  const { cards, handlePress, handleLongPress, actionSheet } =
-    useItemCardBehavior({
-      items: episodes ?? [],
-      cards: episodeCards,
-      kind: "rowWide",
-      // The rows this replaced were TouchableItemRouters, which carried it.
-      enableActionSheet: true,
-    });
+  const {
+    cards,
+    handlePress,
+    handleLongPress,
+    menuActionsFor,
+    handleMenuAction,
+    actionSheet,
+  } = useItemCardBehavior({
+    items: episodes ?? [],
+    cards: episodeCards,
+    kind: "rowWide",
+    // The rows this replaced were TouchableItemRouters, which carried it.
+    enableActionSheet: true,
+  });
 
   // The header's Shuffle takes the whole show; this one, the open season.
   // Counted the way the queue is built: placeholders for missing episodes
@@ -310,6 +316,8 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
                 onLongPress={
                   handleLongPress ? () => handleLongPress(card.id) : undefined
                 }
+                menuActions={menuActionsFor?.(card.id)}
+                onMenuAction={(key) => handleMenuAction(card.id, key)}
               />
             </View>
           ))

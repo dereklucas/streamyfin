@@ -76,6 +76,27 @@ export const swiftUiModule = {
       </Box>
     );
   },
+  // A context menu is its trigger plus its items as rows, so a spec can find
+  // the poster it wraps and press an action.
+  ContextMenu: Object.assign(
+    ({ children }: { children?: React.ReactNode }) => (
+      <Box testID='swiftui-context-menu'>{children}</Box>
+    ),
+    {
+      Trigger: ({ children }: { children?: React.ReactNode }) => (
+        <Box>{children}</Box>
+      ),
+      Items: ({ children }: { children?: React.ReactNode }) => (
+        <Box testID='swiftui-context-menu-items'>{children}</Box>
+      ),
+      Preview: ({ children }: { children?: React.ReactNode }) => (
+        <Box>{children}</Box>
+      ),
+    },
+  ),
+  RNHostView: ({ children }: { children: React.ReactNode }) => (
+    <Box>{children}</Box>
+  ),
   HStack: Stack,
   Spacer: nothing,
   Image: nothing,

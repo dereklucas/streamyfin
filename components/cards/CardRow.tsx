@@ -111,20 +111,26 @@ export const CardRow: React.FC<Props> = ({
   enableActionSheet = false,
   ...props
 }) => {
-  const { cards, handlePress, handleLongPress, actionSheet } =
-    useItemCardBehavior({
-      items,
-      cards: providedCards,
-      kind,
-      useEpisodePoster,
-      showParentTitle,
-      selectedId,
-      onPressItem,
-      onPressId,
-      onLongPressItem,
-      onLongPressId,
-      enableActionSheet,
-    });
+  const {
+    cards,
+    handlePress,
+    handleLongPress,
+    menuActionsFor,
+    handleMenuAction,
+    actionSheet,
+  } = useItemCardBehavior({
+    items,
+    cards: providedCards,
+    kind,
+    useEpisodePoster,
+    showParentTitle,
+    selectedId,
+    onPressItem,
+    onPressId,
+    onLongPressItem,
+    onLongPressId,
+    enableActionSheet,
+  });
 
   const layout = CARD_LAYOUTS[kind];
   const listRef = useRef<FlashListRef<CardData>>(null);
@@ -166,9 +172,19 @@ export const CardRow: React.FC<Props> = ({
         slots={slots}
         onPress={handlePress}
         onLongPress={handleLongPress}
+        menuActions={menuActionsFor?.(item.id)}
+        onMenuAction={handleMenuAction}
       />
     ),
-    [kind, textPlacement, slots, handlePress, handleLongPress],
+    [
+      kind,
+      textPlacement,
+      slots,
+      handlePress,
+      handleLongPress,
+      menuActionsFor,
+      handleMenuAction,
+    ],
   );
 
   const isEmpty = cards.length === 0;

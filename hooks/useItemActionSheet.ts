@@ -15,6 +15,10 @@ import { useShuffleSeries } from "@/hooks/useShuffleSeries";
 import { useDownload } from "@/providers/DownloadProvider";
 import { userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
+import {
+  getDownloadedEpisodesForSeason,
+  getDownloadedEpisodesForSeries,
+} from "@/utils/downloads/offline-series";
 import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
 import { getItemNavigation } from "@/utils/itemNavigation";
 import { writeInfoLog } from "@/utils/log";
@@ -27,7 +31,8 @@ export function useItemActions(item: BaseItemDto) {
   const markAsPlayedStatus = useMarkAsPlayed([item]);
   const { isFavorite, toggleFavorite } = useFavorite(item);
   const isOffline = useOfflineMode();
-  const { deleteFile, downloadedItems } = useDownload();
+  const { deleteFile, deleteItems, downloadedItems, getDownloadedItems } =
+    useDownload();
   const shuffleSeries = useShuffleSeries();
   const menuDownload = useMenuDownload();
   const playItem = usePlayItem();
@@ -94,9 +99,30 @@ export function useItemActions(item: BaseItemDto) {
         case "download":
           await menuDownload(item);
           return;
-        case "delete":
-          if (item.Id) deleteFile(item.Id);
+        case "delete": {
+          if (!item.Id) return;
+          // A series or season has no file of its own: its download is its
+          // downloaded episodes.
+          if (item.Type === "Series" || item.Type === "Season") {
+            const seriesId = item.Type === "Series" ? item.Id : item.SeriesId;
+            if (!seriesId) return;
+            const episodes =
+              item.Type === "Series"
+                ? getDownloadedEpisodesForSeries(getDownloadedItems(), seriesId)
+                : getDownloadedEpisodesForSeason(
+                    getDownloadedItems(),
+                    seriesId,
+                    item.IndexNumber ?? -1,
+                  );
+            const ids = episodes
+              .map((episode) => episode.Id)
+              .filter((id): id is string => Boolean(id));
+            if (ids.length > 0) await deleteItems(ids);
+            return;
+          }
+          deleteFile(item.Id);
           return;
+        }
       }
     },
     [
@@ -107,6 +133,8 @@ export function useItemActions(item: BaseItemDto) {
       toggleFavorite,
       menuDownload,
       deleteFile,
+      deleteItems,
+      getDownloadedItems,
       playItem,
       playNextEpisode,
       router,

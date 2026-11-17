@@ -2,6 +2,7 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { useAtomValue } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { platformDetails } from "@/components/common/NativeContextMenu";
 import { useActionSheet } from "@/hooks/useActionSheet";
 import { useFavorite } from "@/hooks/useFavorite";
 import { useMarkAsPlayed } from "@/hooks/useMarkAsPlayed";
@@ -11,6 +12,7 @@ import { useDownload } from "@/providers/DownloadProvider";
 import { userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { type ItemActionKey, itemMenuActions } from "@/utils/itemActions";
+import { writeInfoLog } from "@/utils/log";
 
 /**
  * Runs the long-press actions of one item (see `itemMenuActions`), by key.
@@ -97,6 +99,10 @@ export function useItemLongPress(item: BaseItemDto) {
 
   const showActionSheet = useCallback((): Promise<void> => {
     if (menuActions.length === 0) return Promise.resolve();
+    writeInfoLog("Long press opened the action sheet", {
+      itemType: item.Type,
+      ...platformDetails(),
+    });
 
     const options = [
       ...menuActions.map((action) => action.label),
@@ -125,7 +131,7 @@ export function useItemLongPress(item: BaseItemDto) {
         },
       );
     });
-  }, [showActionSheetWithOptions, run, menuActions, t]);
+  }, [showActionSheetWithOptions, run, menuActions, item.Type, t]);
 
   return { menuActions, runAction: run, showActionSheet };
 }

@@ -1,16 +1,18 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { getShowApi } from "@jellyfin/sdk/lib/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { atom, useAtom } from "jotai";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import {
   SeasonDropdown,
   type SeasonIndexState,
 } from "@/components/series/SeasonDropdown";
 import { SyncPlayQueueButton } from "@/components/syncplay/SyncPlayQueueButton";
 import { useEpisodeAirLabels } from "@/hooks/useEpisodeAirLabels";
+import { playableQueueItems, useShuffleQueue } from "@/hooks/useShuffleQueue";
 import { useDownload } from "@/providers/DownloadProvider";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
@@ -53,6 +55,7 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
   const { t } = useTranslation();
   const isOffline = useOfflineMode();
   const { getDownloadedItems, refreshKey } = useDownload();
+  const { startShuffle } = useShuffleQueue();
 
   const seasonIndex = useMemo(
     () => seasonIndexState[item.Id ?? ""],
@@ -206,6 +209,12 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
       enableActionSheet: true,
     });
 
+  // The header's Shuffle takes the whole show; this one, the open season.
+  // Counted the way the queue is built: placeholders for missing episodes
+  // have nothing to play, and one playable episode is no shuffle.
+  const canShuffleSeason =
+    episodeRow !== "loading" && playableQueueItems(episodes ?? []).length > 1;
+
   const { availabilityLabel } = useEpisodeAirLabels();
   const slots = useMemo(
     () => ({
@@ -265,6 +274,22 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
             <PlayedStatus items={episodes || []} />
             <SyncPlayQueueButton items={episodes || []} variant='icon' />
           </View>
+        ) : null}
+        {/* Unlike the buttons above, shuffling needs no server. */}
+        {canShuffleSeason ? (
+          <TouchableOpacity
+            accessibilityRole='button'
+            accessibilityLabel={t("player.shuffle_season")}
+            onPress={() => startShuffle(episodes ?? [], { isOffline })}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className='ml-2'
+          >
+            <MaterialCommunityIcons
+              name='shuffle-variant'
+              size={22}
+              color='white'
+            />
+          </TouchableOpacity>
         ) : null}
       </View>
       <View className='px-4 flex flex-col mt-4'>

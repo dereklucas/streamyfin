@@ -1,6 +1,11 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import type { DownloadedItem } from "@/providers/Downloads/types";
 import { userAtom } from "@/providers/JellyfinProvider";
@@ -112,6 +117,13 @@ jest.mock("@/components/common/HeaderIcon", () => ({
 jest.mock("../PlayedStatus", () => ({ PlayedStatus: () => null }));
 jest.mock("@/components/syncplay/SyncPlayQueueButton", () => ({
   SyncPlayQueueButton: () => null,
+}));
+// Starting a queue navigates to the player; what matters here is the pool.
+jest.mock("@/hooks/usePlayMedia", () => ({ usePlayMedia: () => jest.fn() }));
+const mockStartShuffle = jest.fn();
+jest.mock("@/hooks/useShuffleQueue", () => ({
+  ...jest.requireActual("@/hooks/useShuffleQueue"),
+  useShuffleQueue: () => ({ startShuffle: mockStartShuffle }),
 }));
 jest.mock("../PlatformDropdown", () => ({
   PlatformDropdown: ({ trigger }: { trigger: React.ReactNode }) => trigger,
@@ -387,5 +399,97 @@ describe("SeasonPicker online", () => {
     expect(
       screen.queryByText("item_card.no_episodes_for_this_season"),
     ).toBeNull();
+  });
+});
+
+describe("SeasonPicker season shuffle", () => {
+  beforeEach(() => {
+    mockStartShuffle.mockClear();
+    mockShowApi.getSeasons.mockResolvedValue({
+      data: { Items: [{ Id: "season-1", IndexNumber: 1, Name: "Season 1" }] },
+    });
+  });
+  afterEach(() => {
+    mockOffline = true;
+  });
+
+  test("shuffles only the open season's downloaded episodes offline", async () => {
+    mockOffline = true;
+    mockDownloads = [
+      episode(1, "Pilot"),
+      episode(1, "Second"),
+      episode(2, "Return"),
+    ];
+    const store = createStore();
+    store.set(seasonIndexAtom, { [SERIES.Id!]: 1 });
+
+    await renderPicker(store);
+    await waitFor(() => expect(screen.getByText("Second")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("player.shuffle_season"));
+
+    expect(mockStartShuffle).toHaveBeenCalledTimes(1);
+    const [pool, options] = mockStartShuffle.mock.calls[0];
+    expect(pool.map((item: BaseItemDto) => item.Name).sort()).toEqual([
+      "Pilot",
+      "Second",
+    ]);
+    expect(options).toEqual({ isOffline: true });
+  });
+
+  test("shuffles the open season's episodes online", async () => {
+    mockOffline = false;
+    mockDownloads = [];
+    mockShowApi.getEpisodes.mockResolvedValue({
+      data: {
+        Items: [
+          { Id: "episode-1", Name: "Pilot", ParentIndexNumber: 1 },
+          { Id: "episode-2", Name: "Second", ParentIndexNumber: 1 },
+        ],
+        TotalRecordCount: 2,
+      },
+    });
+    const store = createStore();
+    store.set(userAtom, { Id: "user" });
+    store.set(seasonIndexAtom, { [SERIES.Id!]: 1 });
+
+    await renderPicker(store);
+    await waitFor(() => expect(screen.getByText("Second")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("player.shuffle_season"));
+
+    const [pool, options] = mockStartShuffle.mock.calls[0];
+    expect(pool.map((item: BaseItemDto) => item.Id)).toEqual([
+      "episode-1",
+      "episode-2",
+    ]);
+    expect(options).toEqual({ isOffline: false });
+  });
+
+  // Counted the way the queue is built: a missing episode is a placeholder
+  // with nothing to play, and one playable episode is no shuffle.
+  test("offers no season shuffle with fewer than two playable episodes", async () => {
+    mockOffline = false;
+    mockDownloads = [];
+    mockShowApi.getEpisodes.mockResolvedValue({
+      data: {
+        Items: [
+          { Id: "episode-1", Name: "Pilot", ParentIndexNumber: 1 },
+          {
+            Id: "episode-2",
+            Name: "Missing",
+            ParentIndexNumber: 1,
+            LocationType: "Virtual",
+          },
+        ],
+        TotalRecordCount: 2,
+      },
+    });
+    const store = createStore();
+    store.set(userAtom, { Id: "user" });
+    store.set(seasonIndexAtom, { [SERIES.Id!]: 1 });
+
+    await renderPicker(store);
+    await waitFor(() => expect(screen.getByText("Missing")).toBeTruthy());
+
+    expect(screen.queryByLabelText("player.shuffle_season")).toBeNull();
   });
 });

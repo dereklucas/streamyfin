@@ -5,8 +5,8 @@
 #   few minutes; force-quit and reopen the app to get it.
 # - Native code changed (or no build yet): full EAS build with the
 #   `production` profile (custom bun steps in .eas/build/ios-production.yml,
-#   remote credentials, remote auto-incremented build number), started from
-#   EAS CLI (see build_ios), which uploads it to TestFlight when it finishes.
+#   remote credentials, remote auto-incremented build number), then upload to
+#   TestFlight with the commit message as "What to Test".
 #
 # The fingerprint comes from fingerprint.config.js (upstream's, tuned for its
 # own repack logic), and the app's runtimeVersion uses the same fingerprint, so
@@ -56,22 +56,24 @@ jobs:
       # No Sentry org for the fork.
       upload_sentry_sourcemaps: false
 
-  # A build started by a workflow's build job is not given the project's
-  # signing credentials (its "Resolve Apple team ID from credentials" step
-  # finds none), while one started by EAS CLI is. So the CLI starts the build
-  # here, and --auto-submit uploads it to TestFlight when it finishes. The
-  # build itself runs on EAS's macOS workers as any other; this job only
-  # starts it.
+  # The build config's eas/resolve_build_config step resolves the job's
+  # signing credentials on the build machine; without it a build started
+  # here had none (see .eas/build/ios-production.yml).
   build_ios:
-    name: Build iOS and upload to TestFlight
+    name: Build iOS
     needs: [get_build]
     if: ${{ !needs.get_build.outputs.build_id || inputs.full_build }}
-    environment: production
-    steps:
-      - uses: eas/checkout
-      - name: Install dependencies (bun, frozen)
-        run: bun install --frozen-lockfile
-      - name: Start the build
-        run: |
-          npx -y eas-cli@latest build --platform ios --profile production \
-            --non-interactive --no-wait --auto-submit
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  testflight:
+    name: Upload to TestFlight
+    needs: [build_ios]
+    type: testflight
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+      # Shows up as "What to Test" in TestFlight, so each build says what it has.
+      changelog: "${{ github.commit_message || 'development build' }}"

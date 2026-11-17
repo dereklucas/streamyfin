@@ -13,18 +13,21 @@ const { expo } = JSON.parse(
 // this test keeps it in step with the identifiers the project really ships.
 // A fork that renames the app should leave the constant alone and point
 // EXPO_PUBLIC_SENTRY_DSN at its own project.
+// Fork (dereklucas/streamyfin): app.json carries the fork's bundle id, so the
+// constant must keep upstream's ids and never the fork's, or the fork's
+// crashes would land in upstream's Sentry project.
+const UPSTREAM_APPLICATION_ID = "com.fredrikburmester.streamyfin";
+
 describe("OFFICIAL_APPLICATION_IDS", () => {
-  test("holds the iOS and tvOS bundle identifier of app.json", () => {
-    expect(OFFICIAL_APPLICATION_IDS).toContain(expo.ios.bundleIdentifier);
+  test("holds upstream's identifier and nothing else", () => {
+    expect([...OFFICIAL_APPLICATION_IDS]).toEqual([UPSTREAM_APPLICATION_ID]);
+  });
+
+  test("does not hold the fork's iOS bundle identifier", () => {
+    expect(OFFICIAL_APPLICATION_IDS).not.toContain(expo.ios.bundleIdentifier);
   });
 
   test("holds the Android application id of app.json", () => {
     expect(OFFICIAL_APPLICATION_IDS).toContain(expo.android.package);
-  });
-
-  test("holds nothing else", () => {
-    expect([...OFFICIAL_APPLICATION_IDS].sort()).toEqual(
-      [...new Set([expo.ios.bundleIdentifier, expo.android.package])].sort(),
-    );
   });
 });

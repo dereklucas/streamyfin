@@ -889,6 +889,7 @@
     "auto_subtitles_restart_required": "These subtitles need playback to restart. Enable it in Settings, Audio and subtitles.",
     "auto_subtitles_none": "No subtitles available for this item",
     "shuffle": "Shuffle",
+    "shuffle_season": "Shuffle season",
     "entire_series": "Entire series",
     "episode_count": "{{count}} episodes",
     "menu": {

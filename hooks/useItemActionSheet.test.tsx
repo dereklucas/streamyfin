@@ -25,6 +25,12 @@ jest.mock("@/hooks/useFavorite", () => ({
 jest.mock("@/providers/DownloadProvider", () => ({
   useDownload: () => ({ deleteFile: () => {} }),
 }));
+const mockShuffleSeries = jest.fn(
+  async (_item: BaseItemDto, _options?: { isOffline?: boolean }) => {},
+);
+jest.mock("@/hooks/useShuffleSeries", () => ({
+  useShuffleSeries: () => mockShuffleSeries,
+}));
 jest.mock(
   "@/providers/OfflineModeProvider",
   () => jest.requireActual("@/test-utils/stubModules").onlineModule,
@@ -42,6 +48,7 @@ describe("useItemActionSheet", () => {
   beforeEach(() => {
     mockShowActionSheet.mockReset();
     mockMarkAsPlayed.mockClear();
+    mockShuffleSeries.mockClear();
   });
 
   // Jellyfin 12 (web #8063) lets a folder be marked played, the way a series
@@ -92,5 +99,42 @@ describe("useItemActionSheet", () => {
     await closed;
 
     expect(mockMarkAsPlayed).toHaveBeenCalledWith(false);
+  });
+
+  test("offers Shuffle first for a series", async () => {
+    await present("Series");
+
+    expect(mockShowActionSheet.mock.calls[0][0].options[0]).toBe(
+      "player.shuffle",
+    );
+  });
+
+  test("shuffles the series when Shuffle is chosen", async () => {
+    const { closed } = await present("Series");
+    await mockShowActionSheet.mock.calls[0][1](0);
+    await closed;
+
+    expect(mockShuffleSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ Id: "item-1", Type: "Series" }),
+      { isOffline: false },
+    );
+    expect(mockMarkAsPlayed).not.toHaveBeenCalled();
+  });
+
+  test("still marks a series played below Shuffle", async () => {
+    const { closed } = await present("Series");
+    await mockShowActionSheet.mock.calls[0][1](1);
+    await closed;
+
+    expect(mockMarkAsPlayed).toHaveBeenCalledWith(true);
+    expect(mockShuffleSeries).not.toHaveBeenCalled();
+  });
+
+  test("offers no Shuffle for a movie", async () => {
+    await present("Movie");
+
+    expect(mockShowActionSheet.mock.calls[0][0].options).not.toContain(
+      "player.shuffle",
+    );
   });
 });

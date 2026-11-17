@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useActionSheet } from "@/hooks/useActionSheet";
 import { useFavorite } from "@/hooks/useFavorite";
 import { useMarkAsPlayed } from "@/hooks/useMarkAsPlayed";
+import { useShuffleSeries } from "@/hooks/useShuffleSeries";
 import { useDownload } from "@/providers/DownloadProvider";
 import { useOfflineMode } from "@/providers/OfflineModeProvider";
 
@@ -24,8 +25,8 @@ const ACTION_SHEET_ITEM_TYPES: ReadonlySet<BaseItemKind> = new Set([
 ]);
 
 /**
- * The long-press action sheet for a media item: played state, favorite, and —
- * offline — deleting the download.
+ * The long-press action sheet for a media item: shuffle (a series), played
+ * state, favorite, and — offline — deleting the download.
  *
  * Returns a function that presents the sheet and resolves once it closes, so a
  * caller that mounts it on demand knows when to unmount again. Unsupported item
@@ -38,25 +39,53 @@ export function useItemActionSheet(item: BaseItemDto) {
   const { isFavorite, toggleFavorite } = useFavorite(item);
   const isOffline = useOfflineMode();
   const { deleteFile } = useDownload();
+  const shuffleSeries = useShuffleSeries();
 
   return useCallback((): Promise<void> => {
     if (!item.Type || !ACTION_SHEET_ITEM_TYPES.has(item.Type)) {
       return Promise.resolve();
     }
 
-    const options: string[] = [
-      t("common.mark_as_played"),
-      t("common.mark_as_not_played"),
-      isFavorite
-        ? t("music.track_options.remove_from_favorites")
-        : t("music.track_options.add_to_favorites"),
-      ...(isOffline ? [t("home.downloads.delete_download")] : []),
+    // Built as a list so an action's place in the sheet is not its identity.
+    const actions: { label: string; run: () => unknown }[] = [
+      ...(item.Type === "Series"
+        ? [
+            {
+              label: t("player.shuffle"),
+              run: () => shuffleSeries(item, { isOffline }),
+            },
+          ]
+        : []),
+      {
+        label: t("common.mark_as_played"),
+        run: () => markAsPlayedStatus(true),
+      },
+      {
+        label: t("common.mark_as_not_played"),
+        run: () => markAsPlayedStatus(false),
+      },
+      {
+        label: isFavorite
+          ? t("music.track_options.remove_from_favorites")
+          : t("music.track_options.add_to_favorites"),
+        run: toggleFavorite,
+      },
+      ...(isOffline && item.Id
+        ? [
+            {
+              label: t("home.downloads.delete_download"),
+              run: () => deleteFile(item.Id!),
+            },
+          ]
+        : []),
+    ];
+    const options = [
+      ...actions.map((action) => action.label),
       t("common.cancel"),
     ];
     const cancelButtonIndex = options.length - 1;
-    const destructiveButtonIndex = isOffline
-      ? cancelButtonIndex - 1
-      : undefined;
+    const destructiveButtonIndex =
+      isOffline && item.Id ? cancelButtonIndex - 1 : undefined;
 
     return new Promise<void>((resolve) => {
       showActionSheetWithOptions(
@@ -66,28 +95,22 @@ export function useItemActionSheet(item: BaseItemDto) {
           destructiveButtonIndex,
         },
         async (selectedIndex) => {
-          if (selectedIndex === 0) {
-            await markAsPlayedStatus(true);
-          } else if (selectedIndex === 1) {
-            await markAsPlayedStatus(false);
-          } else if (selectedIndex === 2) {
-            toggleFavorite();
-          } else if (isOffline && selectedIndex === 3 && item.Id) {
-            deleteFile(item.Id);
-          }
+          const action =
+            selectedIndex === undefined ? undefined : actions[selectedIndex];
+          await action?.run();
           resolve();
         },
       );
     });
   }, [
     showActionSheetWithOptions,
+    shuffleSeries,
+    item,
     isFavorite,
     markAsPlayedStatus,
     toggleFavorite,
     isOffline,
     deleteFile,
-    item.Id,
-    item.Type,
     t,
   ]);
 }

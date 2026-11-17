@@ -1012,7 +1012,12 @@
       "mark_unwatched": "Unwatched",
       "favorite": "Favorite",
       "unfavorite": "Unfavorite",
-      "download": "Download"
+      "download": "Download",
+      "resume_from": "Resume from {{time}}",
+      "play_next_episode": "Play next episode",
+      "go_to_show": "Go to show",
+      "go_to_season": "Go to season",
+      "no_next_episode": "No next episode to play"
     },
     "episodes_load_failed": "Couldn't load the episodes.",
     "missing": "Missing",

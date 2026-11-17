@@ -46,6 +46,30 @@ jest.mock(
 
 // Hands the "sheet closed" promise back inside an object: returned bare,
 // awaiting the render would also wait for a sheet nobody has answered yet.
+const mockPlayItem = jest.fn(async () => {});
+jest.mock("@/hooks/usePlayItem", () => ({ usePlayItem: () => mockPlayItem }));
+jest.mock("@/hooks/usePlayNextEpisode", () => ({
+  usePlayNextEpisode: () => async () => {},
+}));
+// One router object, as the real hook returns, or the handlers' deps change.
+const mockPush = jest.fn();
+jest.mock("@/hooks/useAppRouter", () => {
+  const router = { push: (...args: unknown[]) => mockPush(...args) };
+  return { __esModule: true, default: () => router };
+});
+jest.mock("expo-router", () => ({
+  useSegments: () => ["(auth)", "(tabs)", "(home)"],
+}));
+
+/** Presents the sheet for `item` and chooses the option labelled `label`. */
+const choose = async (item: BaseItemDto, label: string) => {
+  const { result } = await renderHook(() => useItemActionSheet(item));
+  const closed = result.current();
+  const [{ options }, onSelect] = mockShowActionSheet.mock.calls.at(-1)!;
+  await onSelect(options.indexOf(label));
+  await closed;
+};
+
 const present = async (type: BaseItemKind | undefined) => {
   const item: BaseItemDto = { Id: "item-1", Type: type };
   const { result } = await renderHook(() => useItemActionSheet(item));
@@ -114,18 +138,17 @@ describe("useItemActionSheet", () => {
     expect(mockMarkAsPlayed).toHaveBeenCalledWith(false);
   });
 
-  test("offers Shuffle first for a series", async () => {
+  test("offers the next episode, then Shuffle, first for a series", async () => {
     await present("Series");
 
-    expect(mockShowActionSheet.mock.calls[0][0].options[0]).toBe(
+    expect(mockShowActionSheet.mock.calls[0][0].options.slice(0, 2)).toEqual([
+      "item_card.menu.play_next_episode",
       "player.shuffle",
-    );
+    ]);
   });
 
   test("shuffles the series when Shuffle is chosen", async () => {
-    const { closed } = await present("Series");
-    await mockShowActionSheet.mock.calls[0][1](0);
-    await closed;
+    await choose({ Id: "item-1", Type: "Series" }, "player.shuffle");
 
     expect(mockShuffleSeries).toHaveBeenCalledWith(
       expect.objectContaining({ Id: "item-1", Type: "Series" }),
@@ -135,9 +158,7 @@ describe("useItemActionSheet", () => {
   });
 
   test("still marks a series played below Shuffle", async () => {
-    const { closed } = await present("Series");
-    await mockShowActionSheet.mock.calls[0][1](1);
-    await closed;
+    await choose({ Id: "item-1", Type: "Series" }, "common.mark_as_played");
 
     expect(mockMarkAsPlayed).toHaveBeenCalledWith(true);
     expect(mockShuffleSeries).not.toHaveBeenCalled();
@@ -148,6 +169,53 @@ describe("useItemActionSheet", () => {
 
     expect(mockShowActionSheet.mock.calls[0][0].options).not.toContain(
       "player.shuffle",
+    );
+  });
+
+  test("plays a movie from where it was left", async () => {
+    mockPlayItem.mockClear();
+    const movie: BaseItemDto = { Id: "m1", Type: "Movie" };
+
+    await choose(movie, "common.play");
+
+    expect(mockPlayItem).toHaveBeenCalledWith(movie, {
+      fromStart: false,
+      isOffline: false,
+    });
+  });
+
+  test("goes to an episode's show", async () => {
+    mockPush.mockClear();
+    const episode: BaseItemDto = {
+      Id: "e1",
+      Type: "Episode",
+      SeriesId: "series-1",
+      ParentIndexNumber: 2,
+    };
+
+    await choose(episode, "item_card.menu.go_to_show");
+
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { id: "series-1" } }),
+    );
+  });
+
+  test("goes to an episode's season on the show page", async () => {
+    mockPush.mockClear();
+    const episode: BaseItemDto = {
+      Id: "e1",
+      Type: "Episode",
+      SeriesId: "series-1",
+      SeasonId: "season-2",
+      ParentIndexNumber: 2,
+    };
+
+    await choose(episode, "item_card.menu.go_to_season");
+
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({ id: "series-1", seasonIndex: "2" }),
+      }),
     );
   });
 });

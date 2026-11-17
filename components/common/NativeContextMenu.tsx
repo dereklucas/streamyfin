@@ -19,9 +19,10 @@ export interface NativeContextMenuAction {
   destructive?: boolean;
   /**
    * "quick" goes in the icon row on top (as Music's Download, Favorite,
-   * Share), "destructive" apart at the end. Default: the list.
+   * Share), "nav" in its own section under the list, "destructive" apart at
+   * the end. Default: the list.
    */
-  group?: "quick" | "primary" | "destructive";
+  group?: "quick" | "primary" | "nav" | "destructive";
   /** The quick row's label under the icon, where a long one wraps. */
   shortLabel?: string;
 }
@@ -63,6 +64,7 @@ export const NativeContextMenu: React.FC<Props> = ({
     action.group ?? (action.destructive ? "destructive" : "primary");
   const quick = actions.filter((action) => groupOf(action) === "quick");
   const primary = actions.filter((action) => groupOf(action) === "primary");
+  const nav = actions.filter((action) => groupOf(action) === "nav");
   const destructive = actions.filter(
     (action) => groupOf(action) === "destructive",
   );
@@ -94,7 +96,12 @@ export const NativeContextMenu: React.FC<Props> = ({
             </ControlGroup>
           ) : null}
           {primary.map((action) => button(action))}
-          {destructive.length > 0 && quick.length + primary.length > 0 ? (
+          {nav.length > 0 && quick.length + primary.length > 0 ? (
+            <Divider />
+          ) : null}
+          {nav.map((action) => button(action))}
+          {destructive.length > 0 &&
+          quick.length + primary.length + nav.length > 0 ? (
             <Divider />
           ) : null}
           {destructive.map((action) => button(action))}

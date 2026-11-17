@@ -6,7 +6,7 @@
 # - Native code changed (or no build yet): full EAS build with the
 #   `production` profile (custom bun steps in .eas/build/ios-production.yml,
 #   remote credentials, remote auto-incremented build number), then upload to
-#   TestFlight with the commit message as "What to Test".
+#   TestFlight with the submit job.
 #
 # The fingerprint comes from fingerprint.config.js (upstream's, tuned for its
 # own repack logic), and the app's runtimeVersion uses the same fingerprint, so
@@ -68,12 +68,13 @@ jobs:
       platform: ios
       profile: production
 
-  testflight:
+  # The submit job, not the testflight one: on the free plan a testflight job
+  # cannot take an EAS build (only an App Store Connect build), and the
+  # submit job uploads to TestFlight just the same, minus "What to Test".
+  submit_ios:
     name: Upload to TestFlight
     needs: [build_ios]
-    type: testflight
+    type: submit
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
       profile: production
-      # Shows up as "What to Test" in TestFlight, so each build says what it has.
-      changelog: "${{ github.commit_message || 'development build' }}"

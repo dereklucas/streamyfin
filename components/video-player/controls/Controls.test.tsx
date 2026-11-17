@@ -24,6 +24,8 @@ let mockDownloads: Record<string, unknown> = {};
 
 // The native-module doubles test-utils/perfSetup.ts registers for the perf
 // spec that renders Controls.
+// Starting a queue opens the native player, which Jest cannot load.
+jest.mock("@/hooks/usePlayMedia", () => ({ usePlayMedia: () => jest.fn() }));
 jest.mock("expo-notifications", () => ({
   scheduleNotificationAsync: jest.fn(),
 }));

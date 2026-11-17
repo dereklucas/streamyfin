@@ -66,3 +66,9 @@ export const BACKGROUND_IMAGE_TRANSITION: ImageTransition = {
   duration: BACKGROUND_IMAGE_TRANSITION_DURATION,
   skipOnCacheHit: "all",
 };
+
+/**
+ * The glyph size of the icon buttons in a season's row (download, shuffle),
+ * beside the season dropdown on the phone and tablet series page.
+ */
+export const SEASON_ICON_SIZE = 18;

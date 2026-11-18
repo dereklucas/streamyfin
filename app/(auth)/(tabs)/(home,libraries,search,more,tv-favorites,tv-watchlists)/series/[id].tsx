@@ -248,11 +248,8 @@ const page: React.FC = () => {
       >
         <View className='flex flex-col pt-4'>
           <SeriesHeader item={item} />
-          {!isOffline && (
-            <View className='mb-4'>
-              <NextUp seriesId={seriesId} />
-            </View>
-          )}
+          {/* Spaces itself, and leaves no gap when it hides. */}
+          {!isOffline && <NextUp seriesId={seriesId} />}
           {allEpisodes !== undefined && (
             <SeasonPicker item={item} initialSeasonIndex={initialSeasonIndex} />
           )}

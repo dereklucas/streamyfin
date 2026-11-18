@@ -25,6 +25,9 @@ protocol MPVLayerRendererDelegate: AnyObject {
     /// Fired only for a genuine end-of-file (MPV_END_FILE_REASON_EOF) — never
     /// for stop/quit during teardown, which would emit spurious end events.
     func rendererDidReachEnd(_ renderer: MPVLayerRenderer)
+    /// The video's display aspect when its pixels are not square (a DVD), or
+    /// nil; see `AnamorphicLayout`.
+    func renderer(_ renderer: MPVLayerRenderer, didChangeAnamorphicAspect aspect: Double?)
     /// The subtitle line on screen now (nil between lines or with subtitles
     /// off), and whether the selected track is plain text, which a label can
     /// draw below the picture; styled (ASS) and image subtitles cannot be.
@@ -32,6 +35,7 @@ protocol MPVLayerRendererDelegate: AnyObject {
 }
 
 extension MPVLayerRendererDelegate {
+    func renderer(_ renderer: MPVLayerRenderer, didChangeAnamorphicAspect aspect: Double?) {}
     func renderer(_ renderer: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {}
 }
 
@@ -983,6 +987,7 @@ final class MPVLayerRenderer {
 
         case MPV_EVENT_VIDEO_RECONFIG:
             applySubtitleLayout()
+            notifyAnamorphicAspect()
         case MPV_EVENT_START_FILE:
             let entryId = event.data?.assumingMemoryBound(to: mpv_event_start_file.self).pointee.playlist_entry_id
             // A load whose reply named no entry falls back to order, so it
@@ -1152,6 +1157,31 @@ final class MPVLayerRenderer {
             guard let self, self.burnedInSubtitlesHidden != hidden else { return }
             self.burnedInSubtitlesHidden = hidden
             self.setProperty(name: "sub-visibility", value: hidden ? "no" : "yes")
+        }
+    }
+
+    /// The last display aspect told to the delegate, so a reconfig that
+    /// changes nothing tells nothing. Renderer queue only.
+    private var anamorphicAspect: Double?
+
+    private func notifyAnamorphicAspect() {
+        guard let handle = mpv else { return }
+        var width: Int64 = 0
+        var height: Int64 = 0
+        var aspect: Double = 0
+        _ = getProperty(handle: handle, name: "video-params/w", format: MPV_FORMAT_INT64, value: &width)
+        _ = getProperty(handle: handle, name: "video-params/h", format: MPV_FORMAT_INT64, value: &height)
+        _ = getProperty(handle: handle, name: "video-params/aspect", format: MPV_FORMAT_DOUBLE, value: &aspect)
+        let display = AnamorphicLayout.displayAspect(width: Int(width), height: Int(height), aspect: aspect)
+        guard display != anamorphicAspect else { return }
+        anamorphicAspect = display
+        Logger.shared.log(
+            "Video \(width)x\(height), display aspect \(String(format: "%.3f", aspect))"
+                + (display == nil ? "" : " (non-square pixels)"),
+            type: "Info")
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.delegate?.renderer(self, didChangeAnamorphicAspect: display)
         }
     }
 

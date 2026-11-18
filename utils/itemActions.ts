@@ -56,7 +56,6 @@ export type ItemActionKey =
   | "playFromStart"
   | "playNext"
   | "goToSeries"
-  | "goToSeason"
   | "shuffle"
   | "played"
   | "unplayed"
@@ -214,16 +213,6 @@ export const itemMenuActions = (
             key: "goToSeries" as const,
             label: t("item_card.menu.go_to_show"),
             systemImage: "tv",
-            group: "nav" as const,
-          },
-        ]
-      : []),
-    ...(isEpisode && item.SeriesId && item.ParentIndexNumber != null
-      ? [
-          {
-            key: "goToSeason" as const,
-            label: t("item_card.menu.go_to_season"),
-            systemImage: "list.number",
             group: "nav" as const,
           },
         ]

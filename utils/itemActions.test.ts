@@ -212,7 +212,7 @@ describe("itemMenuActions playback and navigation", () => {
     expect(keys({ ...episode, LocationType: "Virtual" })).not.toContain("play");
   });
 
-  test("offers going to the show and the season from an episode", () => {
+  test("offers going to the show from an episode", () => {
     const actions = itemMenuActions(episode, base);
 
     expect(actions.map((a) => a.key)).toEqual([
@@ -221,11 +221,10 @@ describe("itemMenuActions playback and navigation", () => {
       "favorite",
       "download",
       "goToSeries",
-      "goToSeason",
     ]);
     expect(
       actions.filter((a) => a.key.startsWith("goTo")).map((a) => a.group),
-    ).toEqual(["nav", "nav"]);
+    ).toEqual(["nav"]);
   });
 
   test("offers going to the show from a season", () => {

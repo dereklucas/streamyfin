@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useAtom } from "jotai";
 import type React from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, useWindowDimensions, View } from "react-native";
 import { AddToFavorites } from "@/components/AddToFavorites";
@@ -29,6 +29,7 @@ import { useSeriesQueries } from "@/components/series/useSeriesQueries";
 import { SyncPlayButton } from "@/components/syncplay/SyncPlayButton";
 import { LOGO_HEIGHT } from "@/constants/Images";
 import { useLeaveWhenGone } from "@/hooks/useLeaveWhenGone";
+import { useRevealWhenReady } from "@/hooks/useRevealWhenReady";
 import { playableQueueItems, useShuffleQueue } from "@/hooks/useShuffleQueue";
 import { apiAtom } from "@/providers/JellyfinProvider";
 import { OfflineModeProvider } from "@/providers/OfflineModeProvider";
@@ -37,6 +38,9 @@ import { getLogoImageUrlById } from "@/utils/jellyfin/image/getLogoImageUrlById"
 import { toImagePixels } from "@/utils/jellyfin/image/imagePixels";
 import { storage } from "@/utils/mmkv";
 import { getSeriesPlaybackTarget } from "@/utils/seriesPlaybackTarget";
+
+/** The longest the show page's body waits for its sections before showing. */
+const SHOW_PAGE_REVEAL_TIMEOUT_MS = 2500;
 
 // Height of the backdrop header, in layout points.
 const HEADER_HEIGHT = 400;
@@ -79,6 +83,18 @@ const page: React.FC = () => {
   // query answers null once the last one is deleted. There is nothing left to
   // show here: go back to the downloads instead of leaving an empty screen.
   useLeaveWhenGone(isOffline && item === null);
+
+  // The body (Next up, the season and its episodes) fills in from several
+  // requests, each moving the rest as it landed. It stays invisible, loading,
+  // until they have settled, then shows whole (hooks/useRevealWhenReady).
+  const [nextUpSettled, setNextUpSettled] = useState(false);
+  const [seasonSettled, setSeasonSettled] = useState(false);
+  const onNextUpSettled = useCallback(() => setNextUpSettled(true), []);
+  const onSeasonSettled = useCallback(() => setSeasonSettled(true), []);
+  const bodyRevealed = useRevealWhenReady(
+    [isOffline || nextUpSettled, seasonSettled],
+    SHOW_PAGE_REVEAL_TIMEOUT_MS,
+  );
 
   // For offline mode, use stored base64 image
   const base64Image = useMemo(() => {
@@ -248,11 +264,19 @@ const page: React.FC = () => {
       >
         <View className='flex flex-col pt-4'>
           <SeriesHeader item={item} />
-          {/* Spaces itself, and leaves no gap when it hides. */}
-          {!isOffline && <NextUp seriesId={seriesId} />}
-          {allEpisodes !== undefined && (
-            <SeasonPicker item={item} initialSeasonIndex={initialSeasonIndex} />
-          )}
+          <View style={{ opacity: bodyRevealed ? 1 : 0 }}>
+            {/* Spaces itself, and leaves no gap when it hides. */}
+            {!isOffline && (
+              <NextUp seriesId={seriesId} onSettled={onNextUpSettled} />
+            )}
+            {allEpisodes !== undefined && (
+              <SeasonPicker
+                item={item}
+                initialSeasonIndex={initialSeasonIndex}
+                onSettled={onSeasonSettled}
+              />
+            )}
+          </View>
           {!isOffline && <SimilarItems item={item} className='mt-4' />}
         </View>
       </ParallaxScrollView>

@@ -725,7 +725,7 @@ export const defaultValues: Settings = {
   enableHoldToSpeed: true,
   holdToSpeedRate: 2.0,
   enablePinchToZoom: true,
-  enableDoubleTapToSeek: false,
+  enableDoubleTapToSeek: true,
   hideVolumeSlider: false,
   hideBrightnessSlider: false,
   usePopularPlugin: true,

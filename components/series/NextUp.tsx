@@ -36,7 +36,9 @@ export const NextUp: React.FC<{ seriesId: string }> = ({ seriesId }) => {
       items={items ?? []}
       useEpisodePoster
       loading={isLoading}
-      emptyText={t("item_card.no_items_to_display")}
+      // A finished show, or one not started, has nothing next: no section.
+      hideIfEmpty
+      className='mb-4'
     />
   );
 };

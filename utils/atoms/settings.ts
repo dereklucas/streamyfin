@@ -525,6 +525,8 @@ export type Settings = {
   mergeNextUpAndContinueWatching: boolean;
   /** Home row of episodes about to air, from every TV library. Off by default. */
   showUpcomingOnHome: boolean;
+  /** Jellyfin's Suggested movies row on Home. */
+  showSuggestedMovies?: boolean;
   /**
    * Home hero carousel filters. Both are "hidden" lists, so an empty list
    * (the default) shows everything, and they combine: hiding the
@@ -731,6 +733,7 @@ export const defaultValues: Settings = {
   usePopularPlugin: true,
   mergeNextUpAndContinueWatching: false,
   showUpcomingOnHome: false,
+  showSuggestedMovies: true,
   hiddenHomeHeroSections: [],
   hiddenHomeHeroMediaTypes: [],
   useEpisodeImagesForNextUp: false,

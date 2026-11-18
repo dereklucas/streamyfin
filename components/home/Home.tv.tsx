@@ -48,6 +48,7 @@ import {
 } from "@/providers/JellyfinProvider";
 import { useSettings } from "@/utils/atoms/settings";
 import { fetchCustomHomeSection } from "@/utils/customHomeSection";
+import { showsSuggestedMovies } from "@/utils/home/suggestedMovies";
 import { scaleSize } from "@/utils/scaleSize";
 import { updateTVDiscovery } from "@/utils/tvDiscovery/sync";
 
@@ -376,7 +377,7 @@ export const Home = () => {
       ...firstSections,
       ...upcomingSections,
       ...latestMediaViews,
-      ...(!settings?.streamyStatsMovieRecommendations
+      ...(showsSuggestedMovies(settings)
         ? [
             {
               title: t("home.suggested_movies"),
@@ -406,6 +407,7 @@ export const Home = () => {
     t,
     createCollectionConfig,
     settings?.streamyStatsMovieRecommendations,
+    settings?.showSuggestedMovies,
     settings.mergeNextUpAndContinueWatching,
     settings.showUpcomingOnHome,
   ]);

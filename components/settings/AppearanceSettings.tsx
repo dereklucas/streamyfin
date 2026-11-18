@@ -88,6 +88,17 @@ export const AppearanceSettings: React.FC = () => {
           />
         </ListItem>
         <ListItem
+          title={t("home.settings.appearance.show_suggested_movies")}
+          subtitle={t("home.settings.appearance.show_suggested_movies_hint")}
+        >
+          <SettingSwitch
+            value={settings.showSuggestedMovies !== false}
+            onValueChange={(value) =>
+              updateSettings({ showSuggestedMovies: value })
+            }
+          />
+        </ListItem>
+        <ListItem
           title={t("home.settings.appearance.use_episode_images_next_up")}
           subtitle={t(
             "home.settings.appearance.use_episode_images_next_up_hint",

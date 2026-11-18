@@ -5,12 +5,22 @@ enum PlayerKey: Equatable {
 	case space
 	case leftArrow
 	case rightArrow
+	case escape
+	/// A printable key as typed, Shift applied: "k", "<", "7".
+	case character(Character)
 }
 
 enum PlayerKeyAction: Equatable {
 	case togglePlayPause
 	case seekBackward
 	case seekForward
+	case toggleMute
+	case playNextEpisode
+	case close
+	case speedDown
+	case speedUp
+	/// 0 to 0.9 of the duration, from the digit keys, as YouTube's.
+	case seekToFraction(Double)
 }
 
 /// What is on screen when a key arrives, as far as the keyboard cares.
@@ -29,6 +39,8 @@ struct PlayerKeyboardState: Equatable {
 	var canSeek = true
 	/// In SyncPlay a seek is a request to the group.
 	var syncPlayActive = false
+	/// There is a next episode to go to (the group's, in SyncPlay).
+	var hasNextEpisode = false
 }
 
 /// Kept free of UIKit so `scripts/ios/test-player-keyboard-policy.sh` can run
@@ -51,9 +63,15 @@ enum PlayerKeyboardPolicy {
 
 	/// What a key press does, or nil to send it up the responder chain. A
 	/// press with Shift, Control, Option or Command is someone else's shortcut.
+	/// For a character key, `modified` is Control, Option or Command only:
+	/// Shift is how "<" and ">" are typed.
 	static func pressAction(for key: PlayerKey, modified: Bool, in state: PlayerKeyboardState) -> PlayerKeyAction? {
 		guard !modified, !state.overlayOwnsInput, !state.isScrubbing else { return nil }
 		switch key {
+		case .escape:
+			return .close
+		case let .character(character):
+			return characterAction(for: character, in: state)
 		case .space:
 			// A press fires once, so a held space bar toggles once.
 			return .togglePlayPause
@@ -61,6 +79,39 @@ enum PlayerKeyboardPolicy {
 			// Outside SyncPlay the key command takes the arrows.
 			guard state.syncPlayActive, arrowsSeek(in: state) else { return nil }
 			return seekAction(for: key)
+		}
+	}
+
+	/// The speeds the speed menu offers, which < and > step through.
+	static let speedSteps: [Double] = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+
+	/// The next speed down or up from this one; a speed between two steps
+	/// (a press-and-hold rate, a remote's choice) goes to the nearest step
+	/// that way. Nil past either end.
+	static func nextSpeed(from speed: Double, up: Bool) -> Double? {
+		up
+			? speedSteps.first { $0 > speed + 0.001 }
+			: speedSteps.last { $0 < speed - 0.001 }
+	}
+
+	/// YouTube's letters: K plays and pauses, J and L seek, M mutes, N goes to
+	/// the next episode, < and > change the speed, and 0 to 9 jump to that
+	/// tenth of the video. Letters are matched in either case.
+	private static func characterAction(for character: Character, in state: PlayerKeyboardState) -> PlayerKeyAction? {
+		let canSeek = state.canSeek
+		switch character.lowercased() {
+		case "k": return .togglePlayPause
+		// Presses, so one seek per press: in SyncPlay too, through the group.
+		case "j": return canSeek ? .seekBackward : nil
+		case "l": return canSeek ? .seekForward : nil
+		case "m": return .toggleMute
+		case "n": return state.hasNextEpisode ? .playNextEpisode : nil
+		// The group sets the speed in SyncPlay.
+		case "<": return state.syncPlayActive ? nil : .speedDown
+		case ">": return state.syncPlayActive ? nil : .speedUp
+		default:
+			guard character.isASCII, let value = character.wholeNumberValue else { return nil }
+			return canSeek ? .seekToFraction(Double(value) / 10) : nil
 		}
 	}
 
@@ -72,7 +123,7 @@ enum PlayerKeyboardPolicy {
 		switch key {
 		case .leftArrow: return .seekBackward
 		case .rightArrow: return .seekForward
-		case .space: return nil
+		case .space, .escape, .character: return nil
 		}
 	}
 }

@@ -53,6 +53,9 @@ final class MPVPlayerEngine: NSObject {
 	/// The subtitle line on screen (nil between lines) and whether its track
 	/// is plain text, for the host that draws it below the picture. Main.
 	var onSubtitleText: ((String?, Bool) -> Void)?
+	/// The share of the frame that is black at each end inside it (0 for
+	/// none), once per file, for the host's below-picture placement. Main.
+	var onBakedLetterbox: ((Double) -> Void)?
 	/// The host draws plain-text subtitles below the picture itself, so the
 	/// burned-in copy is hidden (except in PiP, which shows only that copy).
 	private var belowPictureSubtitlesActive = false
@@ -836,6 +839,10 @@ extension MPVPlayerEngine: MPVLayerRendererDelegate {
 
 	func renderer(_: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {
 		onSubtitleText?(text, isPlainText)
+	}
+
+	func renderer(_: MPVLayerRenderer, didDetectBakedLetterbox barFraction: Double) {
+		onBakedLetterbox?(barFraction)
 	}
 }
 

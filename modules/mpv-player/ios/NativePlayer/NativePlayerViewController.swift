@@ -30,6 +30,8 @@ final class NativePlayerViewController: UIViewController {
 	private let belowPictureSubtitleView = BelowPictureSubtitleView()
 	private var subtitleLine: String?
 	private var subtitleIsPlainText = false
+	/// Black bars baked into the frame, as a share of its height at each end.
+	private var bakedLetterboxFraction: CGFloat = 0
 	#endif
 	#if os(tvOS)
 	/// UIKit-side focus orchestration between the stacked layer hosts —
@@ -137,6 +139,11 @@ final class NativePlayerViewController: UIViewController {
 			guard let self else { return }
 			self.subtitleLine = text
 			self.subtitleIsPlainText = isPlainText
+			self.updateBelowPictureSubtitles()
+		}
+		engine.onBakedLetterbox = { [weak self] fraction in
+			guard let self else { return }
+			self.bakedLetterboxFraction = CGFloat(fraction)
 			self.updateBelowPictureSubtitles()
 		}
 		#endif
@@ -374,7 +381,8 @@ final class NativePlayerViewController: UIViewController {
 			wanted
 			? BelowPictureSubtitlePlacement.frame(
 				container: container, videoAspect: aspect,
-				bottomInset: view.safeAreaInsets.bottom, lineHeight: lineHeight)
+				bottomInset: view.safeAreaInsets.bottom, lineHeight: lineHeight,
+				bakedBarFraction: bakedLetterboxFraction)
 			: nil
 
 		engine.setBelowPictureSubtitlesActive(frame != nil)
@@ -518,21 +526,31 @@ final class NativePlayerViewController: UIViewController {
 			subtitleScaleShown: viewModel.showSubtitleScaleControl,
 			isScrubbing: viewModel.isScrubbing,
 			canSeek: viewModel.isReadyToSeek && viewModel.duration > 0,
-			syncPlayActive: viewModel.isSyncPlayActive
+			syncPlayActive: viewModel.isSyncPlayActive,
+			hasNextEpisode: viewModel.isSyncPlayActive
+				? viewModel.syncPlay?.hasNext == true
+				: viewModel.nextEpisode != nil
 		)
 	}
 
 	private func pressAction(for press: UIPress) -> PlayerKeyAction? {
 		guard let key = press.key else { return nil }
 		let playerKey: PlayerKey
+		// Not .numericPad: most keyboards report it on the arrows.
+		var modifiers: UIKeyModifierFlags = [.shift, .control, .alternate, .command]
 		switch key.keyCode {
 		case .keyboardSpacebar: playerKey = .space
 		case .keyboardLeftArrow: playerKey = .leftArrow
 		case .keyboardRightArrow: playerKey = .rightArrow
-		default: return nil
+		case .keyboardEscape: playerKey = .escape
+		default:
+			// As typed, Shift applied: Shift-comma is "<". Shift is how those
+			// are typed, so only Control, Option and Command make a shortcut.
+			guard key.characters.count == 1, let character = key.characters.first else { return nil }
+			playerKey = .character(character)
+			modifiers = [.control, .alternate, .command]
 		}
-		// Not .numericPad: most keyboards report it on the arrows.
-		let modified = !key.modifierFlags.isDisjoint(with: [.shift, .control, .alternate, .command])
+		let modified = !key.modifierFlags.isDisjoint(with: modifiers)
 		return PlayerKeyboardPolicy.pressAction(for: playerKey, modified: modified, in: keyboardState)
 	}
 
@@ -560,6 +578,15 @@ final class NativePlayerViewController: UIViewController {
 		case .togglePlayPause: viewModel.togglePlayPause()
 		case .seekBackward: viewModel.seekBackward()
 		case .seekForward: viewModel.seekForward()
+		case .toggleMute: viewModel.toggleMute()
+		case .playNextEpisode: viewModel.playNextEpisode()
+		case .close: viewModel.close()
+		case .speedDown, .speedUp:
+			if let speed = PlayerKeyboardPolicy.nextSpeed(from: viewModel.speed, up: action == .speedUp) {
+				viewModel.setSpeed(speed)
+			}
+		case let .seekToFraction(fraction):
+			viewModel.seek(to: viewModel.duration * fraction)
 		}
 	}
 	#endif

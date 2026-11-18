@@ -120,5 +120,24 @@ enum SubtitleLayoutTests {
         near(Double(BelowPictureSubtitlePlacement.pictureHeight(container: phone, videoAspect: wide)),
              Double(pictureHeight))
         print("PASS: subtitles below the picture: placement, no-room fallback and font size")
+
+        // Anamorphic video (upstream #1785): a PAL DVD is 720x576 pixels shown
+        // at 16:9. Square pixels need nothing.
+        near(AnamorphicLayout.displayAspect(width: 720, height: 576, aspect: 16.0 / 9)!, 16.0 / 9)
+        precondition(AnamorphicLayout.displayAspect(width: 1920, height: 1080, aspect: 16.0 / 9) == nil)
+        precondition(AnamorphicLayout.displayAspect(width: 0, height: 576, aspect: 16.0 / 9) == nil)
+        precondition(AnamorphicLayout.displayAspect(width: 720, height: 576, aspect: .nan) == nil)
+        // Fitted at its display aspect: a 16:9 picture on a 4:3 iPad, full width.
+        let ipad = CGSize(width: 1024, height: 768)
+        let fitted = AnamorphicLayout.frame(container: ipad, displayAspect: 16.0 / 9, fill: false)
+        near(Double(fitted.width), 1024)
+        near(Double(fitted.height), 576)
+        near(Double(fitted.minY), 96)
+        // Filled: full height, wider than the screen, centred.
+        let filled = AnamorphicLayout.frame(container: ipad, displayAspect: 16.0 / 9, fill: true)
+        near(Double(filled.height), 768)
+        near(Double(filled.width), 768 * 16.0 / 9)
+        near(Double(filled.midX), 512)
+        print("PASS: anamorphic video at its display aspect, fitted and filled")
     }
 }

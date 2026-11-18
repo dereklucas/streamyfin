@@ -53,6 +53,16 @@ final class MPVPlayerEngine: NSObject {
 	/// The subtitle line on screen (nil between lines) and whether its track
 	/// is plain text, for the host that draws it below the picture. Main.
 	var onSubtitleText: ((String?, Bool) -> Void)?
+	/// The display aspect of video with non-square pixels, or nil, for the
+	/// host that sizes the display layer to it. Main.
+	var onAnamorphicAspect: ((Double?) -> Void)?
+	/// Set: the host sizes the layer to the display aspect and the frame is
+	/// stretched to it, whatever the zoom.
+	private(set) var anamorphicAspect: Double?
+	/// The host sizes the display layer to `anamorphicAspect` (the native
+	/// iOS player does). A host that keeps the layer at its own bounds keeps
+	/// the fit and fill gravities, as a stretch there would distort.
+	var hostSizesAnamorphicLayer = false
 	/// The host draws plain-text subtitles below the picture itself, so the
 	/// burned-in copy is hidden (except in PiP, which shows only that copy).
 	private var belowPictureSubtitlesActive = false
@@ -715,7 +725,15 @@ final class MPVPlayerEngine: NSObject {
 
 	func setZoomedToFill(_ zoomed: Bool) {
 		_isZoomedToFill = zoomed
-		displayLayer.videoGravity = zoomed ? .resizeAspectFill : .resizeAspect
+		applyVideoGravity(zoomed: zoomed)
+	}
+
+	/// Fit or fill, or stretched to the layer the host sized to the display
+	/// aspect of anamorphic video (upstream #1785).
+	private func applyVideoGravity(zoomed: Bool) {
+		displayLayer.videoGravity =
+			anamorphicAspect != nil && hostSizesAnamorphicLayer
+			? .resize : (zoomed ? .resizeAspectFill : .resizeAspect)
 		renderer?.syncSubtitleLayerFrame()
 	}
 
@@ -834,6 +852,12 @@ extension MPVPlayerEngine: MPVLayerRendererDelegate {
 		}
 	}
 
+	func renderer(_: MPVLayerRenderer, didChangeAnamorphicAspect aspect: Double?) {
+		anamorphicAspect = aspect
+		applyVideoGravity(zoomed: _isZoomedToFill)
+		onAnamorphicAspect?(aspect)
+	}
+
 	func renderer(_: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {
 		onSubtitleText?(text, isPlainText)
 	}
@@ -875,8 +899,7 @@ extension MPVPlayerEngine: PiPControllerDelegate {
 
 		// Reset to fit for PiP (zoomed video doesn't display correctly in PiP)
 		if _isZoomedToFill {
-			displayLayer.videoGravity = .resizeAspect
-			renderer?.syncSubtitleLayerFrame()
+			applyVideoGravity(zoomed: false)
 		}
 	}
 
@@ -908,8 +931,7 @@ extension MPVPlayerEngine: PiPControllerDelegate {
 
 		// Restore the user's zoom preference
 		if _isZoomedToFill {
-			displayLayer.videoGravity = .resizeAspectFill
-			renderer?.syncSubtitleLayerFrame()
+			applyVideoGravity(zoomed: true)
 		}
 		// Notify the host that PiP has fully stopped so the controls overlay
 		// can be re-mounted when the user returns to full screen.

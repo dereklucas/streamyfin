@@ -184,3 +184,35 @@ struct BelowPictureSubtitlePlacement {
         return min(container.width, container.height * videoAspect) / videoAspect
     }
 }
+
+/// Video whose pixels are not square (a DVD: 720x576 shown at 16:9). The
+/// display layer draws a frame at its pixel shape, so such video came out
+/// squeezed (upstream #1785); the layer is sized to the display aspect
+/// instead and the frame stretched to it.
+enum AnamorphicLayout {
+    /// The display aspect when it differs from the pixels' shape by more than
+    /// 1%, or nil: square pixels, or nothing known.
+    static func displayAspect(width: Int, height: Int, aspect: Double) -> Double? {
+        guard width > 0, height > 0, aspect.isFinite, aspect > 0 else { return nil }
+        let storage = Double(width) / Double(height)
+        return abs(aspect / storage - 1) > 0.01 ? aspect : nil
+    }
+
+    /// The picture's frame in the container at its display aspect: fitted, or
+    /// filling it (zoom), centred either way.
+    static func frame(container: CGSize, displayAspect: CGFloat, fill: Bool) -> CGRect {
+        guard container.width > 0, container.height > 0,
+            displayAspect.isFinite, displayAspect > 0
+        else { return CGRect(origin: .zero, size: container) }
+        let containerAspect = container.width / container.height
+        let widthLimited = (displayAspect > containerAspect) != fill
+        let size = widthLimited
+            ? CGSize(width: container.width, height: container.width / displayAspect)
+            : CGSize(width: container.height * displayAspect, height: container.height)
+        return CGRect(
+            x: (container.width - size.width) / 2,
+            y: (container.height - size.height) / 2,
+            width: size.width,
+            height: size.height)
+    }
+}

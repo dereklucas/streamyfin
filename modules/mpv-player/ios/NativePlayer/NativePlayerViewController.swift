@@ -133,6 +133,11 @@ final class NativePlayerViewController: UIViewController {
 		// Over the video, under every overlay added after it (the controls
 		// cover it, as they cover burned-in subtitles).
 		view.insertSubview(belowPictureSubtitleView, aboveSubview: videoContainerView)
+		// Anamorphic video: the layer takes the display aspect (upstream #1785).
+		engine.hostSizesAnamorphicLayer = true
+		engine.onAnamorphicAspect = { [weak self] _ in
+			self?.view.setNeedsLayout()
+		}
 		engine.onSubtitleText = { [weak self] text, isPlainText in
 			guard let self else { return }
 			self.subtitleLine = text
@@ -206,7 +211,11 @@ final class NativePlayerViewController: UIViewController {
 			viewModel.$subtitlesBelowPicture
 		)
 		.receive(on: DispatchQueue.main)
-		.sink { [weak self] _ in self?.updateBelowPictureSubtitles() }
+		.sink { [weak self] _ in
+			// A zoom resizes an anamorphic picture's layer.
+			self?.view.setNeedsLayout()
+			self?.updateBelowPictureSubtitles()
+		}
 		.store(in: &cancellables)
 
 		viewModel.$controlsVisible
@@ -360,8 +369,8 @@ final class NativePlayerViewController: UIViewController {
 	/// (no bars). PiP is the engine's: it burns them back in.
 	private func updateBelowPictureSubtitles() {
 		let container = view.bounds.size
-		let aspect =
-			CGFloat(viewModel.videoWidth ?? 0) / CGFloat(max(viewModel.videoHeight ?? 0, 1))
+		let aspect = engine.anamorphicAspect.map { CGFloat($0) }
+			?? CGFloat(viewModel.videoWidth ?? 0) / CGFloat(max(viewModel.videoHeight ?? 0, 1))
 		let pictureHeight = BelowPictureSubtitlePlacement.pictureHeight(
 			container: container, videoAspect: aspect)
 		let fontSize = BelowPictureSubtitlePlacement.fontSize(
@@ -398,6 +407,15 @@ final class NativePlayerViewController: UIViewController {
 	/// gravity-based fill (proven, and PiP depends on the layer geometry).
 	private func zoomAwareLayerFrame() -> CGRect {
 		let bounds = videoContainerView.bounds
+		#if os(iOS)
+		// Non-square pixels: the layer at the display aspect, the frame
+		// stretched to it (the engine's gravity), fitted or filled.
+		if let aspect = engine.anamorphicAspect {
+			return AnamorphicLayout.frame(
+				container: bounds.size, displayAspect: CGFloat(aspect),
+				fill: viewModel.isZoomedToFill)
+		}
+		#endif
 		#if os(tvOS)
 		guard viewModel.isZoomedToFill, bounds.width > 0, bounds.height > 0 else {
 			return bounds

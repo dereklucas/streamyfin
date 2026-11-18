@@ -9,6 +9,7 @@ import { getPortraitImageUrl } from "@/utils/jellyfin/image/getPortraitImageUrl"
 import { getWideImageUrl } from "@/utils/jellyfin/image/getWideImageUrl";
 import { toImagePixels } from "@/utils/jellyfin/image/imagePixels";
 import { isLiveBroadcast } from "@/utils/jellyfin/media/isLiveBroadcast";
+import { buildCardPreview, type CardPreview } from "./cardPreview";
 
 /** One card. Everything is prebuilt here; the card view is presentational. */
 export type CardData = {
@@ -43,6 +44,11 @@ export type CardData = {
    * the container expects — an album among posters, say.
    */
   aspectRatio?: number;
+  /**
+   * What the context menu preview shows for this kind of item; without it the
+   * preview repeats the card's own lines.
+   */
+  preview?: CardPreview;
 };
 
 export type CardKind = "wide" | "portrait" | "rowWide";
@@ -292,6 +298,7 @@ export function buildItemCards(
         live: isLiveBroadcast(item),
         dimmed,
         aspectRatio,
+        preview: buildCardPreview(item),
       },
     ];
   });

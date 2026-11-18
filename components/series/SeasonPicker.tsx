@@ -45,11 +45,17 @@ import { episodeRowState } from "./episodeRowState";
 type Props = {
   item: BaseItemDto;
   initialSeasonIndex?: number;
+  /** Told once the selected season's episodes are known (or failed). */
+  onSettled?: () => void;
 };
 
 export const seasonIndexAtom = atom<SeasonIndexState>({});
 
-export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
+export const SeasonPicker: React.FC<Props> = ({
+  item,
+  initialSeasonIndex,
+  onSettled,
+}) => {
   const [api] = useAtom(apiAtom);
   const [user] = useAtom(userAtom);
   const [seasonIndexState, setSeasonIndexState] = useAtom(seasonIndexAtom);
@@ -173,6 +179,10 @@ export const SeasonPicker: React.FC<Props> = ({ item, initialSeasonIndex }) => {
     episodesQuery,
     awaitingSeason,
   );
+
+  useEffect(() => {
+    if (episodeRow !== "loading") onSettled?.();
+  }, [episodeRow, onSettled]);
 
   // Used for height calculation
   const [nrOfEpisodes, setNrOfEpisodes] = useState(0);

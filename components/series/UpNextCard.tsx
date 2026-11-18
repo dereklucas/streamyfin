@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSegments } from "expo-router";
 import { useAtomValue } from "jotai";
 import type React from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { TouchableOpacity, View } from "react-native";
 import { buildCardPreview } from "@/components/cards/cardPreview";
@@ -25,14 +26,21 @@ const THUMB_HEIGHT = THUMB_WIDTH * (9 / 16);
  * episode page is only needed for its versions, audio and subtitle choice
  * (Details). Nothing when nothing is next.
  */
-export const UpNextCard: React.FC<{ seriesId: string }> = ({ seriesId }) => {
+export const UpNextCard: React.FC<{
+  seriesId: string;
+  /** Told once it is known whether there is anything next. */
+  onSettled?: () => void;
+}> = ({ seriesId, onSettled }) => {
   const { t } = useTranslation();
   const api = useAtomValue(apiAtom);
   const router = useRouter();
   const segments = useSegments();
   const from = (segments as string[])[2] || "(home)";
   const play = usePlayItem();
-  const { data: items } = useNextUp(seriesId);
+  const { data: items, isLoading } = useNextUp(seriesId);
+  useEffect(() => {
+    if (!isLoading) onSettled?.();
+  }, [isLoading, onSettled]);
   const episode = items?.[0];
   if (!episode) return null;
 

@@ -1,5 +1,10 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react-native";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import { makeApi } from "@/test-utils/jellyfinApi";
@@ -35,7 +40,7 @@ const EPISODE: BaseItemDto = {
   UserData: { PlaybackPositionTicks: 7 * MINUTE } as BaseItemDto["UserData"],
 };
 
-const setup = async (items: BaseItemDto[]) => {
+const setup = async (items: BaseItemDto[], onSettled?: () => void) => {
   const store = createStore();
   const api = makeApi({ Items: items });
   store.set(apiAtom, api as never);
@@ -43,7 +48,7 @@ const setup = async (items: BaseItemDto[]) => {
   await render(
     <QueryWrapper>
       <JotaiProvider store={store}>
-        <UpNextCard seriesId='scrubs' />
+        <UpNextCard seriesId='scrubs' onSettled={onSettled} />
       </JotaiProvider>
     </QueryWrapper>,
   );
@@ -81,6 +86,14 @@ describe("UpNextCard", () => {
 
     fireEvent.press(await screen.findByLabelText("item_card.more_details"));
     expect(mockPush).toHaveBeenCalled();
+  });
+
+  // The show page waits for it before showing its body, all at once.
+  test("says when it knows, even when nothing is next", async () => {
+    const onSettled = jest.fn();
+    await setup([], onSettled);
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled());
   });
 
   test("shows nothing when nothing is next", async () => {

@@ -70,7 +70,9 @@ older binary.
 Force a native build anyway: Actions → "🍎 Fork: ship iOS" → Run workflow
 on `development` with "full build" ticked. Run it on a `fix/*` or `feat/*`
 branch to build that branch for testing native work before merging; then
-follow the branch from More → Developer for its JS updates. Without a session or Actions,
+follow the branch from More → Developer for its JS updates. Or push it as
+`build/<name>`: a push there builds whenever its native code has no build
+yet (what a Claude session uses, as it cannot start a run by hand). Without a session or Actions,
 `eas build -p ios --profile production --auto-submit` builds on EAS (its
 own monthly build quota).
 

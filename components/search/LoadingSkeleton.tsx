@@ -5,12 +5,22 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Text } from "../common/Text";
+import type { CardKind } from "@/components/cards/CardData";
+import { CardRowSkeleton } from "@/components/cards/CardRowSkeleton";
+import { SectionHeader } from "@/components/common/SectionHeader";
 
 interface Props {
   isLoading: boolean;
 }
 
+/** The result sections a search shows first: Movies, Series, Episodes. */
+const ROWS: CardKind[] = ["portrait", "portrait", "wide"];
+
+/**
+ * The search results while they load, drawn with the result rows' own
+ * header and row skeletons, so the results land where their placeholders
+ * were.
+ */
 export const LoadingSkeleton: React.FC<Props> = ({ isLoading }) => {
   const opacity = useSharedValue(1);
 
@@ -32,33 +42,15 @@ export const LoadingSkeleton: React.FC<Props> = ({ isLoading }) => {
   );
 
   return (
-    <Animated.View style={animatedStyle} className='mt-2 absolute w-full'>
-      {[1, 2, 3].map((s) => (
-        <View className='px-4 mb-4' key={s}>
-          <View className='w-1/2 bg-neutral-900 h-6 mb-2 rounded-lg' />
-          <View className='flex flex-row gap-2'>
-            {[1, 2, 3].map((i) => (
-              <View className='w-28' key={i}>
-                <View className='bg-neutral-900 h-40 w-full rounded-md mb-1' />
-                <View className='rounded-md overflow-hidden mb-1 self-start'>
-                  <Text
-                    className='text-neutral-900 bg-neutral-900 rounded-md'
-                    numberOfLines={1}
-                  >
-                    Nisi mollit voluptate amet.
-                  </Text>
-                </View>
-                <View className='rounded-md overflow-hidden self-start mb-1'>
-                  <Text
-                    className='text-neutral-900 bg-neutral-900 text-xs rounded-md'
-                    numberOfLines={1}
-                  >
-                    Lorem ipsum
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+    <Animated.View
+      style={animatedStyle}
+      className='absolute w-full'
+      pointerEvents='none'
+    >
+      {ROWS.map((kind, index) => (
+        <View key={index}>
+          <SectionHeader title='Section title' placeholder />
+          <CardRowSkeleton kind={kind} />
         </View>
       ))}
     </Animated.View>

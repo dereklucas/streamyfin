@@ -43,15 +43,16 @@ jest.mock("@/components/cards/CardRow", () => ({
 
 const makeServer = ({ genresPending = false } = {}) => {
   const api = makeApi();
-  if (genresPending) {
-    api.mock.onGet(/\/Genres/).reply(() => new Promise(() => {}));
-  }
-  api.mock.onGet(/\/Genres/).reply(200, {
-    Items: [
-      { Id: "comedy", Name: "Comedy", Type: "Genre", MovieCount: 9 },
-      { Id: "drama", Name: "Drama", Type: "Genre", MovieCount: 20 },
-    ],
-  });
+  // A second handler for the same address replaces the first one.
+  const genres = api.mock.onGet(/\/Genres/);
+  if (genresPending) genres.reply(() => new Promise(() => {}));
+  else
+    genres.reply(200, {
+      Items: [
+        { Id: "comedy", Name: "Comedy", Type: "Genre", MovieCount: 9 },
+        { Id: "drama", Name: "Drama", Type: "Genre", MovieCount: 20 },
+      ],
+    });
   api.mock.onGet(/\/Items/).reply((config) => {
     const url = new URL(config.url ?? "", "https://x");
     if (url.searchParams.get("ids")) {

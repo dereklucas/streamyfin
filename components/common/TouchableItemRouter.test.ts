@@ -34,3 +34,18 @@ describe("a studio's route", () => {
     });
   });
 });
+
+describe("a genre's route", () => {
+  // The search page's genre tiles open one as an item of type Genre.
+  test("opens the genre's titles", () => {
+    const genre: BaseItemDto = { Id: "drama", Type: "Genre", Name: "Drama" };
+
+    expect(getItemNavigation(genre, "(search)")).toEqual({
+      pathname: "/genres/[genreId]",
+      params: { genreId: "drama" },
+    });
+    expect(itemRouter(genre, "(search)")).toBe(
+      "/(auth)/(tabs)/(search)/genres/drama",
+    );
+  });
+});

@@ -17,13 +17,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Platform,
-  RefreshControl,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Platform, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CardRow } from "@/components/cards/CardRow";
 import { Image } from "@/components/common/ServerImage";
@@ -33,7 +27,9 @@ import {
   TouchableItemRouter,
 } from "@/components/common/TouchableItemRouter";
 import { LoadingSkeleton } from "@/components/search/LoadingSkeleton";
+import { RecentSearches } from "@/components/search/RecentSearches";
 import { SearchItemWrapper } from "@/components/search/SearchItemWrapper";
+import { SearchLanding } from "@/components/search/SearchLanding";
 import { SearchSortMenu } from "@/components/search/SearchSortMenu";
 import { SearchTabButtons } from "@/components/search/SearchTabButtons";
 import {
@@ -54,6 +50,7 @@ import {
 } from "@/components/seerr/SeerrIndexPage";
 import { SEARCH_RESULT_LIMIT } from "@/constants/Search";
 import useRouter from "@/hooks/useAppRouter";
+import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useSeerr } from "@/hooks/useSeerr";
 import { useServerVersion } from "@/hooks/useServerVersion";
 import { useTVItemActionModal } from "@/hooks/useTVItemActionModal";
@@ -63,6 +60,7 @@ import { useSettings } from "@/utils/atoms/settings";
 import { getIntegrationHeaders } from "@/utils/customHeaders";
 import { isAbortLikeError } from "@/utils/errors";
 import { eventBus } from "@/utils/eventBus";
+import { itemRouter } from "@/utils/itemNavigation";
 import { getPrimaryImageUrl } from "@/utils/jellyfin/image/getPrimaryImageUrl";
 import { searchPeople, searchStudios } from "@/utils/jellyfin/search";
 import { logAndCaptureError } from "@/utils/log";
@@ -72,15 +70,6 @@ import { loadDiscoverSliders } from "@/utils/seerr/sliders";
 import type { MovieResult, PersonResult, TvResult } from "@/utils/seerr/types";
 import { MediaType } from "@/utils/seerr/types";
 import { createStreamystatsApi } from "@/utils/streamystats";
-
-const exampleSearches = [
-  "Lord of the rings",
-  "Avengers",
-  "Game of Thrones",
-  "Breaking Bad",
-  "Stranger Things",
-  "The Mandalorian",
-];
 
 // The people and studio requests are covered by utils/jellyfin/search.test.ts,
 // the TV's studio section by components/search/TVSearchPage.test.tsx.
@@ -117,6 +106,15 @@ export default function SearchPage() {
     }
   }, [queryClient]);
   const [search, setSearch] = useState<string>("");
+  // The field's own focus: while it is focused and empty, it offers the past
+  // searches; otherwise the landing page shows.
+  const [searchFocused, setSearchFocused] = useState(false);
+  const {
+    history: searchHistory,
+    rememberOpened,
+    clearItems: clearRecentItems,
+    clearQueries: clearRecentQueries,
+  } = useSearchHistory();
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -321,6 +319,7 @@ export default function SearchPage() {
     setText: (text: string) => void;
     clearText: () => void;
     cancelSearch: () => void;
+    toggleCancelButton: (show: boolean) => void;
   };
 
   const searchBarRef = useRef<HeaderSearchBarRef>(null);
@@ -336,6 +335,16 @@ export default function SearchPage() {
         },
         hideWhenScrolling: false,
         autoFocus: false,
+        // Cancel only while typing: with results on screen the field's own
+        // clear button is enough, and two clear buttons read as one too many.
+        onFocus: () => {
+          setSearchFocused(true);
+          searchBarRef.current?.toggleCancelButton(true);
+        },
+        onBlur: () => {
+          setSearchFocused(false);
+          searchBarRef.current?.toggleCancelButton(false);
+        },
         // Android: color of the user-typed text (was dark and unreadable on the dark header)
         textColor: "#fff",
         // Android: placeholder and icon color
@@ -565,13 +574,38 @@ export default function SearchPage() {
   }, [l1, l2, l3, l7, l8, l9, l10, l11, l12, l13]);
 
   // TV item press handler
-  const handleItemPress = useCallback(
-    (item: BaseItemDto) => {
-      const navigation = getItemNavigation(item, from);
-      router.push(navigation as any);
+  // Opening an item remembers it, and the search that found it, for the
+  // landing page and the field's past searches.
+  const openItem = useCallback(
+    (item: BaseItemDto, query?: string) => {
+      if (item.Id) rememberOpened(item.Id, query);
+      // Music libraries keep their [libraryId] param only on the string route.
+      if (item.CollectionType === "music") {
+        router.push(itemRouter(item, from) as any);
+        return;
+      }
+      router.push(getItemNavigation(item, from) as any);
     },
-    [from, router],
+    [from, rememberOpened, router],
   );
+  const handleItemPress = useCallback(
+    (item: BaseItemDto) => openItem(item, debouncedSearch),
+    [debouncedSearch, openItem],
+  );
+  const rememberFromResults = useCallback(
+    (item: BaseItemDto) => {
+      if (item.Id) rememberOpened(item.Id, debouncedSearch);
+    },
+    [debouncedSearch, rememberOpened],
+  );
+  const openRecentItem = useCallback(
+    (item: BaseItemDto) => openItem(item),
+    [openItem],
+  );
+  const runRecentSearch = useCallback((query: string) => {
+    setSearch(query);
+    searchBarRef.current?.setText(query);
+  }, []);
 
   // Seerr search for TV
   const { data: seerrTVResults, isFetching: seerrTVLoading } = useQuery({
@@ -853,6 +887,7 @@ export default function SearchPage() {
           <View className={l1 || l2 ? "opacity-0" : "opacity-100"}>
             <CardRow
               enableActionSheet
+              onPressItem={handleItemPress}
               title={t("search.movies")}
               items={movies ?? []}
               kind='portrait'
@@ -860,6 +895,7 @@ export default function SearchPage() {
             />
             <CardRow
               enableActionSheet
+              onPressItem={handleItemPress}
               title={t("search.series")}
               items={series ?? []}
               kind='portrait'
@@ -867,6 +903,7 @@ export default function SearchPage() {
             />
             <CardRow
               enableActionSheet
+              onPressItem={handleItemPress}
               title={t("search.episodes")}
               items={episodes ?? []}
               kind='wide'
@@ -874,6 +911,7 @@ export default function SearchPage() {
             />
             <CardRow
               enableActionSheet
+              onPressItem={handleItemPress}
               title={t("search.collections")}
               items={collections ?? []}
               kind='portrait'
@@ -881,12 +919,14 @@ export default function SearchPage() {
             />
             <CardRow
               enableActionSheet
+              onPressItem={handleItemPress}
               title={t("search.actors")}
               items={actors ?? []}
               kind='portrait'
               hideIfEmpty
             />
             <CardRow
+              onPressItem={handleItemPress}
               title={t("search.studios")}
               items={studios ?? []}
               kind='wide'
@@ -902,6 +942,7 @@ export default function SearchPage() {
                   <TouchableItemRouter
                     item={item}
                     key={item.Id}
+                    onOpen={rememberFromResults}
                     className='flex flex-col w-24 mr-2 items-center'
                   >
                     <View
@@ -941,6 +982,7 @@ export default function SearchPage() {
                   <TouchableItemRouter
                     item={item}
                     key={item.Id}
+                    onOpen={rememberFromResults}
                     className='flex flex-col w-28 mr-2'
                   >
                     <View
@@ -983,6 +1025,7 @@ export default function SearchPage() {
                   <TouchableItemRouter
                     item={item}
                     key={item.Id}
+                    onOpen={rememberFromResults}
                     className='flex flex-col w-28 mr-2'
                   >
                     <View
@@ -1025,6 +1068,7 @@ export default function SearchPage() {
                   <TouchableItemRouter
                     item={item}
                     key={item.Id}
+                    onOpen={rememberFromResults}
                     className='flex flex-col w-28 mr-2'
                   >
                     <View
@@ -1078,20 +1122,21 @@ export default function SearchPage() {
               </Text>
             </View>
           ) : debouncedSearch.length === 0 ? (
-            <View className='mt-2 flex flex-col items-center space-y-2'>
-              {exampleSearches.map((e) => (
-                <TouchableOpacity
-                  onPress={() => {
-                    setSearch(e);
-                    searchBarRef.current?.setText(e);
-                  }}
-                  key={e}
-                  className='mb-2'
-                >
-                  <Text className='text-purple-600'>{e}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            searchFocused &&
+            search.length === 0 &&
+            searchHistory.queries.length > 0 ? (
+              <RecentSearches
+                queries={searchHistory.queries}
+                onSelect={runRecentSearch}
+                onClear={clearRecentQueries}
+              />
+            ) : (
+              <SearchLanding
+                recentItemIds={searchHistory.itemIds}
+                onClearRecent={clearRecentItems}
+                onOpenItem={openRecentItem}
+              />
+            )
           ) : null)}
       </View>
     </ScrollView>

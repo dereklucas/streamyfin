@@ -22,6 +22,10 @@ export const itemRouter = (item: BaseItemDto, from: string) => {
     return `/(auth)/(tabs)/${from}/studios/${item.Id}`;
   }
 
+  if (item.Type === "Genre") {
+    return `/(auth)/(tabs)/${from}/genres/${item.Id}`;
+  }
+
   if (item.Type === "BoxSet") {
     return `/(auth)/(tabs)/${from}/collections/${item.Id}`;
   }
@@ -85,6 +89,13 @@ export const getItemNavigation = (item: BaseItemDto, _from: string) => {
     return {
       pathname: "/studios/[studioId]" as const,
       params: { studioId: item.Id! },
+    };
+  }
+
+  if (item.Type === "Genre") {
+    return {
+      pathname: "/genres/[genreId]" as const,
+      params: { genreId: item.Id! },
     };
   }
 

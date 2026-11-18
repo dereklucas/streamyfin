@@ -4,7 +4,9 @@ import {
   type BaseItemDtoQueryResult,
   type BaseItemKind,
   ItemFields,
+  type ItemSortBy,
   PersonKind,
+  type SortOrder,
 } from "@jellyfin/sdk/lib/generated-client/models";
 import {
   getLibraryApi,
@@ -155,32 +157,29 @@ export const searchStudios = ({
   });
 };
 
-/** One page of the movies and series a studio produced, by name. */
-export const getStudioItems = async ({
-  api,
-  userId,
-  studioId,
-  startIndex,
-  limit,
-  signal,
-}: {
+type ItemPageRequest = {
   api: Api;
   userId?: string;
-  studioId: string;
   startIndex: number;
   limit: number;
   signal?: AbortSignal;
-}): Promise<BaseItemDtoQueryResult> => {
+};
+
+/** One page of movies and series across every library, with a filter. */
+const getItemPage = async (
+  { api, userId, startIndex, limit, signal }: ItemPageRequest,
+  filter: { studioIds: string[] } | { genreIds: string[] },
+  order: { sortBy: ItemSortBy[]; sortOrder: SortOrder[] },
+): Promise<BaseItemDtoQueryResult> => {
   const response = await getLibraryApi(api).getItems(
     {
       userId,
-      studioIds: [studioId],
+      ...filter,
+      ...order,
       includeItemTypes: STUDIO_ITEM_TYPES,
       recursive: true,
       // Or a server that groups movies into collections lists the box sets.
       collapseBoxSetItems: false,
-      sortBy: ["SortName"],
-      sortOrder: ["Ascending"],
       fields: ["PrimaryImageAspectRatio"],
       startIndex,
       limit,
@@ -189,6 +188,34 @@ export const getStudioItems = async ({
   );
   return response.data;
 };
+
+/** One page of the movies and series a studio produced, by name. */
+export const getStudioItems = ({
+  studioId,
+  ...request
+}: ItemPageRequest & { studioId: string }) =>
+  getItemPage(
+    request,
+    { studioIds: [studioId] },
+    { sortBy: ["SortName"], sortOrder: ["Ascending"] },
+  );
+
+/**
+ * One page of a genre's movies and series, best rated first: the order its
+ * tile on the search page promises.
+ */
+export const getGenreItems = ({
+  genreId,
+  ...request
+}: ItemPageRequest & { genreId: string }) =>
+  getItemPage(
+    request,
+    { genreIds: [genreId] },
+    {
+      sortBy: ["CommunityRating", "SortName"],
+      sortOrder: ["Descending", "Ascending"],
+    },
+  );
 
 /**
  * Where the next page of a paged item list starts, or undefined once every

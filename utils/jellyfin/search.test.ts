@@ -2,6 +2,7 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { makeApi } from "@/test-utils/jellyfinApi";
 import { logAndCaptureError } from "@/utils/log";
 import {
+  getGenreItems,
   getStudioItems,
   nextStartIndex,
   rankByName,
@@ -277,5 +278,29 @@ describe("nextStartIndex", () => {
     expect(nextStartIndex([page(18, 40), page(0, 40)])).toBeUndefined();
     expect(nextStartIndex([null])).toBeUndefined();
     expect(nextStartIndex([])).toBeUndefined();
+  });
+});
+
+describe("getGenreItems", () => {
+  test("asks for the genre's movies and series, best rated first", async () => {
+    const page = { Items: [{ Id: "movie-1" }], TotalRecordCount: 40 };
+    const api = makeApi(page);
+
+    const result = await getGenreItems({
+      api,
+      userId: "user-1",
+      genreId: "drama",
+      startIndex: 0,
+      limit: 18,
+    });
+
+    expect(result).toEqual(page);
+    const { path, query } = sentRequest(api);
+    expect(path).toBe("/Items");
+    expect(query.get("genreIds")).toBe("drama");
+    expect(query.get("studioIds")).toBeNull();
+    expect(query.getAll("includeItemTypes")).toEqual(["Movie", "Series"]);
+    expect(query.getAll("sortBy")).toEqual(["CommunityRating", "SortName"]);
+    expect(query.getAll("sortOrder")).toEqual(["Descending", "Ascending"]);
   });
 });

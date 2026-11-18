@@ -36,3 +36,25 @@ export const SEARCH_EXCLUDED_PERSON_TYPES: PersonKind[] = [
  */
 export const STUDIO_PAGE_SIZE = 18;
 export const STUDIO_TV_PAGE_SIZE = 36;
+
+/**
+ * Where the search history is kept: the items opened from a search and the
+ * searches that led to them, one entry per server and user (see
+ * utils/search/searchHistory.ts).
+ */
+export const SEARCH_HISTORY_STORAGE_KEY = "searchHistory";
+
+/** How many items opened from a search the landing page shows again. */
+export const SEARCH_RECENT_ITEMS_LIMIT = 12;
+
+/** How many past searches the field offers while it is empty. */
+export const SEARCH_RECENT_QUERIES_LIMIT = 8;
+
+/** How many genres the landing page shows to browse. */
+export const SEARCH_GENRE_LIMIT = 12;
+
+/** How many of a genre's best rated posters its tile stacks. */
+export const SEARCH_GENRE_POSTER_COUNT = 3;
+
+/** A genre page's size, as a studio page's. */
+export const GENRE_PAGE_SIZE = STUDIO_PAGE_SIZE;

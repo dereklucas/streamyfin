@@ -11,6 +11,8 @@ import { hasNativeContextMenu, NativeContextMenu } from "./NativeContextMenu";
 
 interface Props extends TouchableOpacityProps {
   item: BaseItemDto;
+  /** Told as the item opens, before navigating (the search's history). */
+  onOpen?: (item: BaseItemDto) => void;
 }
 
 // Moved to utils so hooks can route without importing this component.
@@ -19,6 +21,7 @@ export { getItemNavigation, itemRouter };
 export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
   item,
   children,
+  onOpen,
   ...props
 }) => {
   const segments = useSegments();
@@ -33,6 +36,7 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
   const from = (segments as string[])[2] || "(home)";
 
   const handlePress = useCallback(() => {
+    onOpen?.(item);
     // Force music libraries to navigate via the explicit string route.
     // This avoids losing the dynamic [libraryId] param when going through a nested navigator.
     if ("CollectionType" in item && item.CollectionType === "music") {
@@ -42,7 +46,7 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
 
     const navigation = getItemNavigation(item, from);
     router.push(navigation as any);
-  }, [from, item, router]);
+  }, [from, item, onOpen, router]);
 
   if (
     from === "(home)" ||

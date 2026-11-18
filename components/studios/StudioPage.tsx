@@ -7,16 +7,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCardGrid } from "@/components/cards/useCardGrid";
 import { Text } from "@/components/common/Text";
 import { Loader } from "@/components/Loader";
-import { useStudioItems } from "@/hooks/useStudioItems";
+import { type ItemGridKind, useItemGrid } from "@/hooks/useStudioItems";
 
 const COLUMNS = 3;
 
-/** A studio's movies and series as a poster grid, titled with its name. */
-export const StudioPage: React.FC<{ studioId: string }> = ({ studioId }) => {
+/**
+ * A studio's (or a genre's) movies and series as a poster grid, titled with
+ * its name.
+ */
+export const StudioPage: React.FC<{
+  studioId: string;
+  kind?: ItemGridKind;
+}> = ({ studioId, kind = "studio" }) => {
   const { t } = useTranslation();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { studio, items, isLoading, loadMore } = useStudioItems(studioId);
+  const { studio, items, isLoading, loadMore } = useItemGrid(kind, studioId);
 
   useEffect(() => {
     navigation.setOptions({ title: studio?.Name ?? "" });

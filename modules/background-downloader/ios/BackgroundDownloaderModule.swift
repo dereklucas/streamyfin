@@ -587,6 +587,7 @@ public class BackgroundDownloaderModule: Module {
       }
 
       try fileManager.moveItem(at: location, to: destinationURL)
+      excludeFromBackup(destinationURL)
 
       backgroundDownloaderLog.notice("Task \(taskId) completed; file moved into place")
 
@@ -744,6 +745,21 @@ public class BackgroundDownloaderModule: Module {
         totalBytes: totalBytes
       )
     #endif
+  }
+
+  /// A downloaded video comes back with a tap, so it stays out of iCloud backups, as Apple's
+  /// storage guidelines ask: a few films would fill a backup (upstream #1407). The file stays
+  /// on the device either way; a failure only means it is backed up as before.
+  private func excludeFromBackup(_ url: URL) {
+    var url = url
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    do {
+      try url.setResourceValues(values)
+    } catch {
+      backgroundDownloaderLog.error(
+        "Could not keep a download out of backups: \(error.localizedDescription, privacy: .public)")
+    }
   }
 
   private func finishLiveActivity(taskId: Int, state: DownloadActivityState) {

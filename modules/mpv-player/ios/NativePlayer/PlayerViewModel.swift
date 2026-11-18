@@ -221,6 +221,12 @@ final class PlayerViewModel: NSObject, ObservableObject {
 	// MARK: - Internals
 
 	private var autoHideTask: Task<Void, Never>?
+	/// The last authoritative position, to tell playback that moves on from
+	/// a seek or a stall.
+	private var lastProgressPosition: Double?
+	/// Ticks in a row that moved forward: one alone can be the last of the
+	/// playback a pause just stopped.
+	private var advancingTicks = 0
 	private var countdownTask: Task<Void, Never>?
 	private var volumeRevealTask: Task<Void, Never>?
 	private var brightnessRevealTask: Task<Void, Never>?
@@ -569,6 +575,8 @@ final class PlayerViewModel: NSObject, ObservableObject {
 		isBuffering = true
 		isReadyToSeek = false
 		isScrubbing = false
+		lastProgressPosition = nil
+		advancingTicks = 0
 		scrubPosition = 0
 		duration = 0
 		cacheSeconds = 0
@@ -1669,6 +1677,7 @@ extension PlayerViewModel: MPVPlayerEngineDelegate {
 
 	func engine(_ engine: MPVPlayerEngine, didUpdateProgress position: Double, duration: Double, cacheSeconds: Double) {
 		guard !isTearingDown else { return }
+		healPlaybackState(advancedTo: position)
 		hasAuthoritativePosition = true
 		self.position = position
 		// This callback is 1Hz and duration is @Published — only assign on a
@@ -1774,6 +1783,35 @@ extension PlayerViewModel: MPVPlayerEngineDelegate {
 			"isPaused": isPaused,
 			"isPlaying": !isPaused,
 		])
+	}
+
+	/// Time moving forward at the playback rate means the video plays. After
+	/// an episode swap the player could miss the end of the loading state, or
+	/// keep the pause of the episode before, and then thought it was paused
+	/// or buffering while the next one played: the controls the swap showed
+	/// never hid again, as auto-hide waits for playback (upstream #1922).
+	/// Two 1 Hz ticks in a row that moved forward by up to a few seconds put
+	/// that right.
+	private func healPlaybackState(advancedTo position: Double) {
+		defer { lastProgressPosition = position }
+		guard let last = lastProgressPosition, !isScrubbing else {
+			advancingTicks = 0
+			return
+		}
+		let step = position - last
+		guard step > 0.25, step < 5 else {
+			advancingTicks = 0
+			return
+		}
+		advancingTicks += 1
+		guard advancingTicks >= 2 else { return }
+		if isBuffering {
+			isBuffering = false
+		}
+		if !isPlaying {
+			isPlaying = true
+			updateDisplayLinkState()
+		}
 	}
 
 	func engine(_ engine: MPVPlayerEngine, didChangeLoading isLoading: Bool) {

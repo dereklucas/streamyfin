@@ -163,7 +163,10 @@ jobs:
     name: Build iOS and upload to TestFlight
     needs: decide
     if: (github.ref_name == 'development' || startsWith(github.ref_name, 'build/') || github.event_name == 'workflow_dispatch') && (needs.decide.outputs.shipped != 'true' || inputs.full_build)
-    runs-on: macos-26
+    # macos-15, not macos-26: macos-26 runners were scarce enough that jobs
+    # waited past GitHub's ~15 min limit and were cancelled unstarted. The
+    # macos-15 image carries Xcode 26.x, which latest-stable selects.
+    runs-on: macos-15
     timeout-minutes: 120
     env:
       FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.fingerprint }}

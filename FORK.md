@@ -78,8 +78,9 @@ own monthly build quota).
 
 If the macOS job sits queued for about 15 minutes and then shows as
 cancelled with no log, no runner picked it up (GitHub's "job was not
-acquired" failure, usually a short supply of macos-26 runners). Nothing in
-the change is wrong: re-run the failed job from Actions, or push again.
+acquired" failure: too few runners of that kind, which is why the build
+runs on macos-15 rather than macos-26). Nothing in the change is wrong:
+re-run the failed job from Actions, or push again.
 
 Native code in this app: the video player controls
 (`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel

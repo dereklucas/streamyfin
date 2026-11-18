@@ -120,5 +120,38 @@ enum SubtitleLayoutTests {
         near(Double(BelowPictureSubtitlePlacement.pictureHeight(container: phone, videoAspect: wide)),
              Double(pictureHeight))
         print("PASS: subtitles below the picture: placement, no-room fallback and font size")
+
+        // Black bars baked into the frame (a 2.39:1 film in a 16:9 file).
+        // Rows: 0 is black, 1 is picture; 1080 rows with 138 black at each end.
+        func rows(top: Int, bottom: Int, total: Int = 1080, picture: Double = 0.4) -> [Double] {
+            (0..<total).map { $0 < top || $0 >= total - bottom ? 0.01 : picture }
+        }
+        let film = BakedLetterbox.barFraction(rowLuma: rows(top: 138, bottom: 138))
+        near(film, 138.0 / 1080)
+        // Uneven bars are a dark scene, not a letterbox.
+        precondition(BakedLetterbox.barFraction(rowLuma: rows(top: 300, bottom: 10)) == 0)
+        // A sliver is a crop artefact, not room for subtitles.
+        precondition(BakedLetterbox.barFraction(rowLuma: rows(top: 8, bottom: 8)) == 0)
+        // A black frame says nothing.
+        precondition(BakedLetterbox.barFraction(rowLuma: rows(top: 1080, bottom: 0)) == 0)
+        precondition(BakedLetterbox.barFraction(rowLuma: []) == 0)
+        // Several samples: a dark scene widens the bars in one of them, so the
+        // narrowest wins, and one sample without bars means there are none.
+        near(BakedLetterbox.combine([0.128, 0.2, 0.13]), 0.128)
+        precondition(BakedLetterbox.combine([0.128, 0, 0.13]) == 0)
+        precondition(BakedLetterbox.combine([]) == 0)
+        // Below the visible picture: the baked bar adds to the room. A phone
+        // held sideways has none under a 16:9 frame (it fills the height), but
+        // a 2.39:1 film baked into it leaves its bottom bar for two lines.
+        let sideways = CGSize(width: 852, height: 393)
+        precondition(BelowPictureSubtitlePlacement.frame(
+            container: sideways, videoAspect: wide, bottomInset: 0, lineHeight: 20) == nil)
+        let baked = BelowPictureSubtitlePlacement.frame(
+            container: sideways, videoAspect: wide, bottomInset: 0, lineHeight: 20,
+            bakedBarFraction: 138.0 / 1080)!
+        let frameHeight: CGFloat = 393
+        let visibleBottom = (393 + frameHeight) / 2 - frameHeight * 138 / 1080
+        near(Double(baked.minY), Double(visibleBottom + 8))
+        print("PASS: baked-in letterbox detection and placement under the visible picture")
     }
 }

@@ -8,9 +8,9 @@
 # Merging to `development` (testflight.yml) is what ships native changes.
 name: Preview branch updates
 
+# Manual-only since the move to GitHub Actions (.github/workflows/fork-ios.yml).
 on:
-  push:
-    branches: ["fix/**", "feat/**"]
+  workflow_dispatch: {}
 
 jobs:
   fingerprint:

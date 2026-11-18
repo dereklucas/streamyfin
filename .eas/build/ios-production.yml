@@ -36,6 +36,12 @@ build:
     - run:
         name: Pin runtime version to the source fingerprint
         command: |
+          # The GitHub workflow (.github/workflows/fork-ios.yml) computes it
+          # on the runner and hands it to the local build.
+          if [ -n "$FORK_RUNTIME_VERSION" ]; then
+            echo "Runtime version (from the runner): $FORK_RUNTIME_VERSION"
+            exit 0
+          fi
           HASH=$(bun x fingerprint fingerprint:generate --platform ios \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).hash))')
           if [ -z "$HASH" ]; then echo "Could not compute the fingerprint" >&2; exit 1; fi

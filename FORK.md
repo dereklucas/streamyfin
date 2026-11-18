@@ -14,7 +14,7 @@ bundle ID, and fixes go back upstream as PRs.
 
 Fork-only changes live in their own commits (`chore(fork): ...`) and touch
 only `app.json`, `eas.json`, `package.json`/`bun.lock` (expo-updates),
-`.eas/workflows/testflight.yml`, `FORK.md` and the fork note at the end of
+`.eas/workflows/`, `.github/workflows/fork-ios.yml`, `FORK.md` and the fork note at the end of
 `CLAUDE.md`. Keep fixes out of those commits, so a fix
 can be cherry-picked onto `develop` for an upstream PR without the fork
 config.
@@ -39,30 +39,38 @@ git push origin upstream/my-fix     # then open a PR to streamyfin/streamyfin:de
 ## How builds work
 
 The app is Expo (CNG): `ios/` isn't committed and gets regenerated on every
-build, which rules out Xcode Cloud. Builds run on **EAS Workflows** instead.
+build, which rules out Xcode Cloud. Builds run on **GitHub Actions**: free
+with no minute limit for a public repository, macOS runners included. (They
+ran on EAS Workflows first, until the free plan's 60 CI minutes a month ran
+out; `.eas/workflows/` still holds those, manual-only now.)
 
-`.eas/workflows/testflight.yml` runs on every push to `development` and
+`.github/workflows/fork-ios.yml` runs on every push to `development` and
 picks one of two paths, based on the iOS native fingerprint
 (`fingerprint.config.js`):
 
-- **JS-only change** (an EAS build with the same fingerprint already exists):
+- **JS-only change** (a build with the same fingerprint has shipped: tag
+  `ios-build/<fingerprint>`, or an older EAS build):
   publishes an over-the-air update to the `production` channel. It's ready a
   few minutes after the push. **Force-quit and reopen the app** to get it:
   on launch the app waits up to 5 s for a new update and starts on it.
   Settings shows the commit it's running.
 - **Native change** (Swift/Kotlin in `modules/`, `targets/`, `plugins/`,
-  native dependencies, app.json native config): full EAS build, then a
-  TestFlight upload (the free plan's submit job, so no "What to Test" note). The build
-  number auto-increments on EAS. The build pins its runtime version to the
-  source fingerprint it computes before prebuild (FORK_RUNTIME_VERSION, read
-  by app.config.ts), so it always matches what the updates target.
+  native dependencies, app.json native config, `.eas/build`): `eas build
+  --local` on a macOS runner with the production profile's custom steps and
+  Expo-managed signing, then `eas submit` to TestFlight, then the
+  `ios-build/<fingerprint>` tag. The .ipa is also kept as a run artifact for
+  14 days. The build number auto-increments on EAS. The runner pins the
+  runtime version to the source fingerprint (FORK_RUNTIME_VERSION, read by
+  app.config.ts), so it always matches what the updates target.
 
 `runtimeVersion` uses the same fingerprint policy, so an update only ever
 reaches a binary whose native code matches it. A JS update can't crash an
 older binary.
 
-Force a native build anyway:
-`eas workflow:run .eas/workflows/testflight.yml -F full_build=true`.
+Force a native build anyway: Actions → "🍎 Fork: ship iOS" → Run workflow
+on `development` with "full build" ticked. Without a session or Actions,
+`eas build -p ios --profile production --auto-submit` builds on EAS (its
+own monthly build quota).
 
 Native code in this app: the video player controls
 (`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel
@@ -78,7 +86,7 @@ the branch being followed, and the native fingerprint. From there you can:
 - **Check for update now**: fetch and reload into the latest update right
   away, instead of waiting for the next launch.
 - **Follow a branch**: every push to a `fix/*` or `feat/*` branch publishes
-  an update to a channel named after it (`.eas/workflows/preview-branches.yml`),
+  an update to a channel named after it (same GitHub workflow),
   as long as its native code matches an existing build. Picking the branch
   switches the app's update channel (`Updates.setUpdateRequestHeadersOverride`)
   and loads that update. Picking `development` goes back to the build's own
@@ -113,17 +121,18 @@ bun install --frozen-lockfile
    connect `dereklucas/streamyfin`. Push triggers need this link.
 5. **TestFlight**: in App Store Connect → TestFlight, create an internal
    group with **automatic distribution** on and add yourself to it.
-6. Smoke test: `eas workflow:run .eas/workflows/testflight.yml`, or push to
-   `development`. The first run always does a full build (no earlier build to
-   match); later JS-only pushes become updates.
+6. **GitHub Actions**: enable Actions on the fork (Actions tab), add the
+   repository secret `EXPO_TOKEN` (an Expo robot token), and disable the
+   upstream workflows in the Actions tab (each one's ⋯ → Disable workflow):
+   they assume upstream's secrets and mostly run on `develop`.
+7. Smoke test: push to `development`, or run the workflow by hand.
 
 ## Costs and speed
 
-- The EAS free plan includes a small number of iOS builds per month on a
-  low-priority queue, which can be slow. For fast iteration the
-  Starter/Production plans give priority macOS workers. Check expo.dev/pricing.
-- A full iOS build of this app (MPVKit, static frameworks) takes a while, but
-  only native changes need one. JS updates don't count against EAS build
-  quota (EAS Update has its own, generous free tier).
-- GitHub Actions are disabled by default on forks. Leave them off: upstream's
-  workflows assume upstream's secrets and runners.
+- GitHub Actions: free for a public repository. If the fork ever goes
+  private, macOS minutes count 10× against 2,000 a month (about 200 real
+  minutes), and builds move back to EAS.
+- EAS: builds and CI minutes are not used. EAS Update (JS updates) and EAS
+  Submit (TestFlight uploads) are free at this size; signing stays
+  Expo-managed.
+- The upstream workflows stay disabled in the Actions tab (see setup).

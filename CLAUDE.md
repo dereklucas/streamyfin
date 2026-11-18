@@ -337,6 +337,7 @@ Fork conventions:
   like the native home hero), never a long press of its own. The actions are
   `utils/itemActions.ts`; the native menu is
   `components/common/NativeContextMenu.tsx`.
-- **Ship JS-only changes as updates.** When the EAS workflow queue is slow,
-  publish from the CLI: `eas update --branch production --platform ios
-  --environment production`. A native change needs the workflow's build.
+- **Builds run on GitHub Actions** (`.github/workflows/fork-ios.yml`): a push
+  to `development` ships a JS update or, after a native change, a TestFlight
+  build. To ship JS by hand: `eas update --branch production --platform ios
+  --environment production`.

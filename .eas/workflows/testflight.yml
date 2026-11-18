@@ -16,9 +16,9 @@
 # `-F full_build=true` to force a native build. See FORK.md.
 name: Ship development
 
+# Manual-only since the move to GitHub Actions (.github/workflows/fork-ios.yml):
+# the free plan's 60 CI minutes a month ran out.
 on:
-  push:
-    branches: ["development"]
   workflow_dispatch:
     inputs:
       full_build:

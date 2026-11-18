@@ -221,18 +221,9 @@
         "app_version": "App version"
       },
       "quick_connect": {
-        "quick_connect_title": "Quick Connect",
-        "authorize_button": "Authorize Quick Connect",
-        "enter_the_quick_connect_code": "Enter the Quick Connect code...",
-        "success": "Success",
-        "quick_connect_authorized": "Quick Connect authorized",
         "quick_connect_authorized_for": "Quick Connect authorized for {{username}}",
         "user": "User",
-        "selected_user_unavailable": "The selected user is no longer available",
-        "invalid_code": "Invalid code",
-        "disabled": "Quick Connect is turned off on this server. An administrator can turn it on in the server's dashboard.",
-        "authorize": "Authorize",
-        "paste_code": "Paste code"
+        "selected_user_unavailable": "The selected user is no longer available"
       },
       "media_controls": {
         "media_controls_title": "Media controls",

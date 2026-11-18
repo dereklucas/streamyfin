@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { HeaderHeightContext } from "expo-router/react-navigation";
 import { useAtomValue } from "jotai";
@@ -22,9 +23,11 @@ import {
 import { Button } from "@/components/Button";
 import { Text } from "@/components/common/Text";
 import { PinInput } from "@/components/inputs/PinInput";
+import { PlatformDropdown } from "@/components/PlatformDropdown";
 import { NO_KEYBOARD_TOOLBAR } from "@/constants/Keyboard";
 import { QUICK_CONNECT_CODE_LENGTH } from "@/constants/QuickConnect";
 import useRouter from "@/hooks/useAppRouter";
+import { useQuickConnectUserPicker } from "@/hooks/useQuickConnectUserPicker";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import {
   approveQuickConnectCode,
@@ -70,12 +73,16 @@ export const CompanionLoginScreen: React.FC = () => {
   const router = useRouter();
   const api = useAtomValue(apiAtom);
   const user = useAtomValue(userAtom);
+  // An administrator may approve the code for another account (#11).
+  const picker = useQuickConnectUserPicker();
 
   const [screenState, setScreenState] = useState<ScreenState>(
     ExpoCamera ? "scanning" : "manual",
   );
   const [code, setCode] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Who the last approved code signed in, when it was not this user.
+  const [approvedFor, setApprovedFor] = useState<string | null>(null);
   const authorizingRef = useRef(false);
   // A new id each time the screen opens: Fabric reuses a text input's native
   // view and sets the id on it again only when the id changed.
@@ -163,6 +170,18 @@ export const CompanionLoginScreen: React.FC = () => {
       return;
     }
 
+    // A picked account that has left the list never falls back to the
+    // administrator: the code would sign that device in as an admin.
+    if (picker.isPickUnavailable) {
+      picker.reset();
+      showError(t("home.settings.quick_connect.selected_user_unavailable"));
+      return;
+    }
+    const forUserId =
+      picker.targetUser?.Id && picker.targetUser.Id !== user?.Id
+        ? picker.targetUser.Id
+        : undefined;
+
     // One approval at a time: a second one of the same code comes back as a
     // 500 and would turn a success into an error on screen.
     if (authorizingRef.current) return;
@@ -179,8 +198,9 @@ export const CompanionLoginScreen: React.FC = () => {
       }
       // Approved on the phone's server: a TV on another server never sees it,
       // and the server answers that it does not know the code.
-      const result = await approveQuickConnectCode(api, trimmed);
+      const result = await approveQuickConnectCode(api, trimmed, forUserId);
       if (result === "approved") {
+        setApprovedFor(forUserId ? (picker.targetUser?.Name ?? null) : null);
         setScreenState("success");
         return;
       }
@@ -201,7 +221,7 @@ export const CompanionLoginScreen: React.FC = () => {
     } finally {
       authorizingRef.current = false;
     }
-  }, [api, code, server, showError, t]);
+  }, [api, code, picker, server, showError, t, user?.Id]);
 
   // Back to the camera through the permission again, so a refused one shows
   // the permission screen instead of a camera that stays black.
@@ -281,7 +301,11 @@ export const CompanionLoginScreen: React.FC = () => {
           </Text>
 
           <Text className='mb-8 text-center text-base text-gray-400'>
-            {t("companion_login.pairing_tv_connecting")}
+            {approvedFor
+              ? t("home.settings.quick_connect.quick_connect_authorized_for", {
+                  username: approvedFor,
+                })
+              : t("companion_login.pairing_tv_connecting")}
           </Text>
 
           <Button
@@ -363,8 +387,31 @@ export const CompanionLoginScreen: React.FC = () => {
           keyboardShouldPersistTaps='handled'
         >
           <Text className='mb-2 text-center text-2xl font-bold text-white'>
-            {t("companion_login.login_as", { username: user?.Name ?? "" })}
+            {t("companion_login.login_as", {
+              username: picker.targetUser?.Name ?? user?.Name ?? "",
+            })}
           </Text>
+
+          {picker.showUserPicker && (
+            <View className='mb-4 self-center' style={{ minWidth: 220 }}>
+              <PlatformDropdown
+                title={t("home.settings.quick_connect.user")}
+                groups={picker.userGroups}
+                trigger={
+                  <View className='bg-neutral-900 h-10 rounded-xl border-neutral-800 border px-3 py-2 flex flex-row items-center justify-between'>
+                    <Text numberOfLines={1} className='flex-1 mr-2'>
+                      {picker.targetUser?.Name}
+                    </Text>
+                    <Ionicons
+                      name='chevron-expand-sharp'
+                      size={18}
+                      color='#5A5960'
+                    />
+                  </View>
+                }
+              />
+            </View>
+          )}
 
           <Text className='mb-6 text-center text-base text-gray-400'>
             {t("companion_login.on_server", { server })}

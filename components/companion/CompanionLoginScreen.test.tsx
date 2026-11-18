@@ -1,8 +1,13 @@
+import type { UserDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import { AxiosError, type AxiosResponse } from "axios";
 import { HeaderHeightContext } from "expo-router/react-navigation";
+import { createStore, Provider as JotaiProvider } from "jotai";
+import React from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { CompanionLoginScreen } from "@/components/companion/CompanionLoginScreen";
+import { userAtom } from "@/providers/JellyfinProvider";
 import { quickConnectPairingUrl } from "@/utils/quickConnectPairing";
 
 const mockAuthorize = jest.fn(
@@ -15,12 +20,46 @@ const mockAuthorize = jest.fn(
   }),
 );
 const mockEnabled = jest.fn(async () => ({ data: true }));
+const mockGetUsers = jest.fn(async () => ({ data: [] as UserDto[] }));
 jest.mock("@jellyfin/sdk/lib/utils/api", () => ({
   getAuthenticationApi: () => ({
     authorizeQuickConnect: (params: { code: string; userId?: string }) =>
       mockAuthorize(params),
     getQuickConnectEnabled: () => mockEnabled(),
   }),
+  getSystemApi: () => ({
+    getPublicSystemInfo: async () => ({ data: { Version: "10.11.2" } }),
+  }),
+  getUserApi: () => ({ getUsers: () => mockGetUsers() }),
+}));
+// The native menu is not under test: every account is a pressable item.
+jest.mock("@/components/PlatformDropdown", () => ({
+  PlatformDropdown: ({
+    trigger,
+    groups,
+  }: {
+    trigger: React.ReactNode;
+    groups: { options: { label: string; onPress: () => void }[] }[];
+  }) => {
+    const { Text: OptionText, View: MenuView } =
+      jest.requireActual("react-native");
+    return (
+      <MenuView>
+        {trigger}
+        {groups
+          .flatMap((group) => group.options)
+          .map((option) => (
+            <OptionText
+              key={option.label}
+              accessibilityRole='menuitem'
+              onPress={option.onPress}
+            >
+              {option.label}
+            </OptionText>
+          ))}
+      </MenuView>
+    );
+  },
 }));
 // The sheet's own input throws outside a bottom sheet, which this screen is
 // not: the code field has to be a plain one.
@@ -33,7 +72,7 @@ jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
   return {
     apiAtom: atom({ basePath: "https://media.example.com" }),
-    userAtom: atom({ Id: "user-1", Name: "Ada", ServerId: "server-1" }),
+    userAtom: atom(null),
   };
 });
 const mockRouter = { back: jest.fn() };
@@ -78,6 +117,37 @@ jest.mock("expo-camera", () => ({
   }) => MockCamera(props),
 }));
 
+const ADA = { Id: "user-1", Name: "Ada", ServerId: "server-1" };
+const ADMIN = {
+  Id: "admin-1",
+  Name: "alice",
+  ServerId: "server-1",
+  Policy: { IsAdministrator: true },
+};
+const BOB = { Id: "user-2", Name: "bob", Policy: {} };
+/** Who is signed in for the next render. */
+let mockSignedIn: Record<string, unknown> = ADA;
+// The screen asks the server who it may approve for: a query client, and
+// the signed-in user in a store of its own.
+const Providers = ({ children }: { children: React.ReactNode }) => {
+  const [store] = React.useState(() => {
+    const created = createStore();
+    created.set(userAtom, mockSignedIn as never);
+    return created;
+  });
+  const [client] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+      }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <JotaiProvider store={store}>{children}</JotaiProvider>
+    </QueryClientProvider>
+  );
+};
+
 const httpError = (status?: number) =>
   new AxiosError(
     "request failed",
@@ -100,6 +170,9 @@ const scan = async (data: string) => {
 
 describe("CompanionLoginScreen", () => {
   beforeEach(() => {
+    mockSignedIn = ADA;
+    mockGetUsers.mockClear();
+    mockGetUsers.mockImplementation(async () => ({ data: [] }));
     mockAuthorize.mockImplementation(async () => ({ status: 200, data: true }));
     mockEnabled.mockClear();
     mockEnabled.mockImplementation(async () => ({ data: true }));
@@ -111,7 +184,7 @@ describe("CompanionLoginScreen", () => {
   // The TV shows a Quick Connect code; the phone approves it with its own
   // session, so no password crosses the network.
   test("approves the code a TV shows with the phone's session", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("http://jellyfin.local:8096", "123456"));
 
     expect(
@@ -126,7 +199,7 @@ describe("CompanionLoginScreen", () => {
   });
 
   test("approves a code typed by hand", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await fireEvent.press(
       screen.getByText("companion_login.enter_code_manually"),
     );
@@ -136,10 +209,65 @@ describe("CompanionLoginScreen", () => {
     expect(mockAuthorize).toHaveBeenCalledWith({ code: "042117" });
   });
 
+  // The Quick Connect sheet in Settings was the only place an administrator
+  // could approve a code for another account; the pairing screen has its
+  // account picker now, so there is one entry for everyone (#11).
+  test("an administrator approves a code for the account they pick", async () => {
+    mockSignedIn = ADMIN;
+    mockGetUsers.mockImplementation(async () => ({
+      data: [ADMIN, BOB] as UserDto[],
+    }));
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
+    await fireEvent.changeText(screen.getByTestId("scanner-code"), "042117");
+
+    await act(async () => {
+      await fireEvent.press(
+        await screen.findByRole("menuitem", { name: "bob" }),
+      );
+    });
+    expect(
+      screen.getByText('companion_login.login_as {"username":"bob"}'),
+    ).toBeTruthy();
+    await pressAuthorize();
+
+    expect(mockAuthorize).toHaveBeenCalledWith({
+      code: "042117",
+      userId: "user-2",
+    });
+    // The confirmation names whose device it is: not the administrator's.
+    expect(
+      screen.getByText(
+        'home.settings.quick_connect.quick_connect_authorized_for {"username":"bob"}',
+      ),
+    ).toBeTruthy();
+  });
+
+  test("an administrator who picks nobody approves for themselves", async () => {
+    mockSignedIn = ADMIN;
+    mockGetUsers.mockImplementation(async () => ({
+      data: [ADMIN, BOB] as UserDto[],
+    }));
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
+    await fireEvent.changeText(screen.getByTestId("scanner-code"), "042117");
+    await screen.findByRole("menuitem", { name: "bob" });
+
+    await pressAuthorize();
+
+    expect(mockAuthorize).toHaveBeenCalledWith({ code: "042117" });
+  });
+
+  test("anyone else gets no account picker", async () => {
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
+    await fireEvent.changeText(screen.getByTestId("scanner-code"), "042117");
+
+    expect(screen.queryByRole("menuitem")).toBeNull();
+    expect(mockGetUsers).not.toHaveBeenCalled();
+  });
+
   // The camera and the code field are on screen together (#11): a full code
   // typed under the camera goes to approval as a scanned one does.
   test("takes a code typed under the camera", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
 
     await fireEvent.changeText(screen.getByTestId("scanner-code"), "042117");
 
@@ -151,7 +279,7 @@ describe("CompanionLoginScreen", () => {
   });
 
   test("waits for the whole code under the camera", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
 
     await fireEvent.changeText(screen.getByTestId("scanner-code"), "042");
 
@@ -161,7 +289,7 @@ describe("CompanionLoginScreen", () => {
   // react-native-tvos puts a toolbar above every iOS number pad; upstream
   // React Native and native apps show none, and Authorize stays in reach.
   test("keeps the toolbar away from the number pad", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await fireEvent.press(
       screen.getByText("companion_login.enter_code_manually"),
     );
@@ -178,11 +306,13 @@ describe("CompanionLoginScreen", () => {
   test("names another accessory view each time the screen opens", async () => {
     const typeByHand = () =>
       fireEvent.press(screen.getByText("companion_login.enter_code_manually"));
-    const { unmount } = await render(<CompanionLoginScreen />);
+    const { unmount } = await render(<CompanionLoginScreen />, {
+      wrapper: Providers,
+    });
     await typeByHand();
     const first = screen.getByTestId("pairing-code").props.inputAccessoryViewID;
     await unmount();
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await typeByHand();
 
     expect(
@@ -192,7 +322,7 @@ describe("CompanionLoginScreen", () => {
 
   // Digits only, so the same six cells as Quick Connect in Settings.
   test("shows a typed code in six cells, as Quick Connect does", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await fireEvent.press(
       screen.getByText("companion_login.enter_code_manually"),
     );
@@ -228,6 +358,7 @@ describe("CompanionLoginScreen", () => {
         <HeaderHeightContext value={100}>
           <CompanionLoginScreen />
         </HeaderHeightContext>,
+        { wrapper: Providers },
       );
       await open();
 
@@ -254,7 +385,7 @@ describe("CompanionLoginScreen", () => {
           answer = resolve;
         }),
     );
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://media.example.com", "123456"));
     await act(async () => {
       fireEvent.press(screen.getByText("companion_login.authorize_button"));
@@ -269,7 +400,7 @@ describe("CompanionLoginScreen", () => {
 
   test("shows the permission screen when the permission check itself fails", async () => {
     mockPermissionCheckFails = true;
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
 
     expect(
       screen.getByText("companion_login.error_permission_denied"),
@@ -284,7 +415,7 @@ describe("CompanionLoginScreen", () => {
     mockPermissionPrompt = new Promise((resolve) => {
       answer = resolve;
     });
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await fireEvent.press(
       screen.getByText("companion_login.enter_code_manually"),
     );
@@ -303,7 +434,7 @@ describe("CompanionLoginScreen", () => {
   // A TV on an older version waits for a password over the network, which
   // this app no longer sends.
   test("asks to update a TV that still shows the old pairing code", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan('{"action":"streamyfin-pair","code":"123456"}');
 
     expect(screen.getByText("companion_login.error_old_tv")).toBeTruthy();
@@ -311,7 +442,7 @@ describe("CompanionLoginScreen", () => {
   });
 
   test("rejects a QR code that is not a TV's", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan("https://example.com/some/page");
 
     expect(screen.getByText("companion_login.error_invalid_qr")).toBeTruthy();
@@ -324,7 +455,7 @@ describe("CompanionLoginScreen", () => {
     mockAuthorize.mockImplementation(async () => {
       throw httpError(404);
     });
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://other.example.com", "123456"));
     await pressAuthorize();
 
@@ -340,7 +471,7 @@ describe("CompanionLoginScreen", () => {
       status: 200,
       data: false,
     }));
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://media.example.com", "123456"));
     await pressAuthorize();
 
@@ -351,7 +482,7 @@ describe("CompanionLoginScreen", () => {
   // session handling would read as an expired token and sign the phone out.
   test("checks that Quick Connect is on before approving, and says when it is not", async () => {
     mockEnabled.mockImplementation(async () => ({ data: false }));
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://media.example.com", "123456"));
     await pressAuthorize();
 
@@ -367,7 +498,7 @@ describe("CompanionLoginScreen", () => {
     mockAuthorize.mockImplementation(async () => {
       throw httpError();
     });
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://media.example.com", "123456"));
     await pressAuthorize();
 
@@ -379,7 +510,7 @@ describe("CompanionLoginScreen", () => {
     mockAuthorize.mockImplementation(async () => {
       throw httpError(500);
     });
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(quickConnectPairingUrl("https://media.example.com", "123456"));
     await pressAuthorize();
 
@@ -389,7 +520,7 @@ describe("CompanionLoginScreen", () => {
   // The TV puts its server's id in the QR code, so a TV on another server is
   // told apart without contacting the address it carries.
   test("says the TV is on another server before asking to approve", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(
       quickConnectPairingUrl(
         "http://tv.example.com:8096",
@@ -407,7 +538,7 @@ describe("CompanionLoginScreen", () => {
   });
 
   test("asks to approve when the QR code names the phone's server", async () => {
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     await scan(
       quickConnectPairingUrl(
         "http://tv.example.com:8096",
@@ -425,7 +556,7 @@ describe("CompanionLoginScreen", () => {
   // permission screen, not on a camera that shows nothing.
   test("goes back to the permission screen on scan again when the camera is refused", async () => {
     mockPermission = { granted: false, canAskAgain: false };
-    await render(<CompanionLoginScreen />);
+    await render(<CompanionLoginScreen />, { wrapper: Providers });
     expect(
       screen.getByText("companion_login.error_permission_denied"),
     ).toBeTruthy();

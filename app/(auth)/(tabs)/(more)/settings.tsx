@@ -10,7 +10,6 @@ import { Text } from "@/components/common/Text";
 import { ListGroup } from "@/components/list/ListGroup";
 import { ListItem } from "@/components/list/ListItem";
 import { AppLanguageSelector } from "@/components/settings/AppLanguageSelector";
-import { QuickConnect } from "@/components/settings/QuickConnect";
 import { StorageSettings } from "@/components/settings/StorageSettings";
 import { UserInfo } from "@/components/settings/UserInfo";
 import { NOTIFICATIONS_SETTINGS_ROUTE } from "@/constants/Notifications";
@@ -31,7 +30,7 @@ function SettingsMobile() {
   const insets = useSafeAreaInsets();
   const { supported: notificationsSupported, mine: notifications } =
     useMyNotifications();
-  const [user] = useAtom(userAtom);
+  const [_user] = useAtom(userAtom);
   const { logout } = useJellyfin();
 
   const navigation = useNavigation();
@@ -69,8 +68,7 @@ function SettingsMobile() {
         </View>
 
         {/* One entry signs in a TV, an iPad or a browser: scan its QR code or
-            type its code. Approving for another account takes the user
-            picker of the Quick Connect sheet, an administrator's. */}
+            type its code. An administrator picks whose device it is there. */}
         <View className='mb-4'>
           <ListGroup title={t("pairing.sign_in_another_device_title")}>
             <ListItem
@@ -82,7 +80,6 @@ function SettingsMobile() {
             />
           </ListGroup>
         </View>
-        {user?.Policy?.IsAdministrator && <QuickConnect className='mb-4' />}
 
         {syncPlayAvailable && (
           <View className='mb-4'>

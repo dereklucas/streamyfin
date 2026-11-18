@@ -21,9 +21,6 @@ jest.mock("@/components/common/HeaderButton", () => ({
 jest.mock("@/components/settings/AppLanguageSelector", () => ({
   AppLanguageSelector: () => null,
 }));
-jest.mock("@/components/settings/QuickConnect", () => ({
-  QuickConnect: () => null,
-}));
 jest.mock("@/components/settings/StorageSettings", () => ({
   StorageSettings: () => null,
 }));

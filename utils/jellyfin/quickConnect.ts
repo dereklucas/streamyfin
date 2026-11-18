@@ -16,14 +16,20 @@ export const isQuickConnectEnabled = async (api: Api): Promise<boolean> =>
  * Three answers rather than two: a code the server has never heard of and a
  * code it refuses to approve are different problems. Anything else throws.
  */
+/**
+ * Approves a Quick Connect code with this session. `userId` signs the
+ * device in as another account (an administrator's choice, Jellyfin 10.9+);
+ * without it the device is signed in as the caller.
+ */
 export const approveQuickConnectCode = async (
   api: Api,
   code: string,
+  userId?: string,
 ): Promise<"approved" | "unknown-code" | "refused"> => {
   try {
-    const { data } = await getAuthenticationApi(api).authorizeQuickConnect({
-      code,
-    });
+    const { data } = await getAuthenticationApi(api).authorizeQuickConnect(
+      userId ? { code, userId } : { code },
+    );
     return data ? "approved" : "refused";
   } catch (e) {
     if (axios.isAxiosError(e) && e.response?.status === 404)

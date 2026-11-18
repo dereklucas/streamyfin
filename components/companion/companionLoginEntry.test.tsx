@@ -37,12 +37,6 @@ jest.mock("@/components/common/HeaderButton", () => ({
 jest.mock("@/components/settings/AppLanguageSelector", () => ({
   AppLanguageSelector: () => null,
 }));
-jest.mock("@/components/settings/QuickConnect", () => ({
-  QuickConnect: () => {
-    const { Text } = jest.requireActual("react-native");
-    return <Text>quick-connect-for-another-user</Text>;
-  },
-}));
 jest.mock("@/components/settings/StorageSettings", () => ({
   StorageSettings: () => null,
 }));
@@ -73,15 +67,13 @@ describe("Settings, sign in another device", () => {
     expect(mockPush).toHaveBeenCalledWith(
       "/(auth)/(tabs)/(more)/companion-login",
     );
-    expect(screen.queryByText("quick-connect-for-another-user")).toBeNull();
   });
 
-  // Approving a code for another account is an administrator's, and only
-  // the Quick Connect sheet picks the account.
-  test("keeps the sheet that approves for another user, for administrators", async () => {
+  // Administrators too: the pairing screen has the account picker (#11).
+  test("gives administrators the same single entry", async () => {
     mockAdmin = true;
     await renderSettings();
 
-    expect(screen.getByText("quick-connect-for-another-user")).toBeTruthy();
+    expect(screen.getByText("pairing.sign_in_another_device")).toBeTruthy();
   });
 });

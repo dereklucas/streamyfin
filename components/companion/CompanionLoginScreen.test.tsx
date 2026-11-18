@@ -136,6 +136,28 @@ describe("CompanionLoginScreen", () => {
     expect(mockAuthorize).toHaveBeenCalledWith({ code: "042117" });
   });
 
+  // The camera and the code field are on screen together (#11): a full code
+  // typed under the camera goes to approval as a scanned one does.
+  test("takes a code typed under the camera", async () => {
+    await render(<CompanionLoginScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("scanner-code"), "042117");
+
+    expect(
+      screen.getByText('companion_login.login_as {"username":"Ada"}'),
+    ).toBeTruthy();
+    await pressAuthorize();
+    expect(mockAuthorize).toHaveBeenCalledWith({ code: "042117" });
+  });
+
+  test("waits for the whole code under the camera", async () => {
+    await render(<CompanionLoginScreen />);
+
+    await fireEvent.changeText(screen.getByTestId("scanner-code"), "042");
+
+    expect(screen.getByText("companion_login.align_qr")).toBeTruthy();
+  });
+
   // react-native-tvos puts a toolbar above every iOS number pad; upstream
   // React Native and native apps show none, and Authorize stays in reach.
   test("keeps the toolbar away from the number pad", async () => {

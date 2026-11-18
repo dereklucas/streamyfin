@@ -9,18 +9,29 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, useWindowDimensions, View } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 import type { QuickConnectStatus } from "@/hooks/useQuickConnect";
+import { quickConnectPairingUrl } from "@/utils/quickConnectPairing";
 import { Button } from "../Button";
 import { Text } from "../common/Text";
+
+/** Wide enough to put the QR code beside the code (an iPad) than above it. */
+const SIDE_BY_SIDE_WIDTH = 700;
 
 interface Props {
   /** The Quick Connect code to display, or null when hidden. */
   code: string | null;
   status: QuickConnectStatus;
   serverName: string;
+  /**
+   * The server's address, for the QR code: another phone's camera opens the
+   * server's Quick Connect page with the code filled in, and Streamyfin's
+   * "Sign in another device" reads the code from it.
+   */
+  serverUrl?: string;
   onNewCode: () => void;
   onClose: () => void;
 }
@@ -35,13 +46,20 @@ export const QuickConnectCodeModal: React.FC<Props> = ({
   code,
   status,
   serverName,
+  serverUrl,
   onNewCode,
   onClose,
 }) => {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const sideBySide = windowWidth >= SIDE_BY_SIDE_WIDTH;
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["50%"], []);
+  // Taller with the QR code above the code (a phone).
+  const snapPoints = useMemo(
+    () => [serverUrl && !sideBySide ? "85%" : "60%"],
+    [serverUrl, sideBySide],
+  );
   const isPresentedRef = useRef(false);
   // Stop resets the provider to idle. Preserve the message while dismissing,
   // or while a replacement code is on its way, rather than flashing a dead code.
@@ -125,31 +143,53 @@ export const QuickConnectCodeModal: React.FC<Props> = ({
             {t("login.quick_connect")}
           </Text>
           {showCode ? (
-            <>
-              <TouchableOpacity
-                className='mt-6 p-6 border border-neutral-800 rounded-xl bg-neutral-900 flex flex-row items-center justify-center'
-                onPress={copyCode}
-              >
-                <Text
-                  className='text-center font-bold text-5xl text-neutral-100'
-                  style={{ letterSpacing: 10 }}
+            <View
+              style={
+                sideBySide && serverUrl
+                  ? { flexDirection: "row", alignItems: "center", gap: 32 }
+                  : undefined
+              }
+            >
+              {serverUrl && (code ?? lastCodeRef.current) ? (
+                <View className='mt-6 items-center'>
+                  {/* White margin: a camera reads a QR code on a quiet zone. */}
+                  <View className='bg-white p-3 rounded-xl'>
+                    <QRCode
+                      value={quickConnectPairingUrl(
+                        serverUrl,
+                        (code ?? lastCodeRef.current) as string,
+                      )}
+                      size={sideBySide ? 240 : Math.min(200, windowWidth * 0.5)}
+                    />
+                  </View>
+                </View>
+              ) : null}
+              <View style={sideBySide && serverUrl ? { flex: 1 } : undefined}>
+                <TouchableOpacity
+                  className='mt-6 p-6 border border-neutral-800 rounded-xl bg-neutral-900 flex flex-row items-center justify-center'
+                  onPress={copyCode}
                 >
-                  {code ?? lastCodeRef.current}
+                  <Text
+                    className='text-center font-bold text-5xl text-neutral-100'
+                    style={{ letterSpacing: 10 }}
+                  >
+                    {code ?? lastCodeRef.current}
+                  </Text>
+                  <Ionicons
+                    name='copy-outline'
+                    size={22}
+                    color='white'
+                    style={{ opacity: 0.4, marginLeft: 16 }}
+                  />
+                </TouchableOpacity>
+                <Text className='mt-2 text-neutral-500 text-center text-xs'>
+                  {t("login.tap_code_to_copy")}
                 </Text>
-                <Ionicons
-                  name='copy-outline'
-                  size={22}
-                  color='white'
-                  style={{ opacity: 0.4, marginLeft: 16 }}
-                />
-              </TouchableOpacity>
-              <Text className='mt-2 text-neutral-500 text-center text-xs'>
-                {t("login.tap_code_to_copy")}
-              </Text>
-              <Text className='mt-3 mb-5 text-neutral-400 text-center px-4'>
-                {t("login.quick_connect_instructions")}
-              </Text>
-            </>
+                <Text className='mt-3 mb-5 text-neutral-400 text-center px-4'>
+                  {t("login.quick_connect_instructions")}
+                </Text>
+              </View>
+            </View>
           ) : (
             <Text className='mt-6 mb-5 text-neutral-400 text-center px-4'>
               {disabled

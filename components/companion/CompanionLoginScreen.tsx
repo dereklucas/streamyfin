@@ -23,6 +23,7 @@ import { Button } from "@/components/Button";
 import { Text } from "@/components/common/Text";
 import { PinInput } from "@/components/inputs/PinInput";
 import { NO_KEYBOARD_TOOLBAR } from "@/constants/Keyboard";
+import { QUICK_CONNECT_CODE_LENGTH } from "@/constants/QuickConnect";
 import useRouter from "@/hooks/useAppRouter";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import {
@@ -217,6 +218,13 @@ export const CompanionLoginScreen: React.FC = () => {
   const handleDone = useCallback(() => {
     router.back();
   }, [router]);
+
+  // A whole code typed under the camera goes to approval as a scanned one.
+  const handleScannerCode = useCallback((value: string) => {
+    const digits = value.replace(/\D/g, "");
+    setCode(digits);
+    if (digits.length === QUICK_CONNECT_CODE_LENGTH) setScreenState("confirm");
+  }, []);
 
   const handleEnterCodeManually = useCallback(() => {
     setCode("");
@@ -426,7 +434,10 @@ export const CompanionLoginScreen: React.FC = () => {
   }
 
   return (
-    <View className='flex-1 bg-black items-center justify-center'>
+    <KeyboardAvoidingView
+      className='flex-1 bg-black items-center justify-center'
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
       {/* Camera full screen */}
       <CameraView
         style={{
@@ -453,6 +464,19 @@ export const CompanionLoginScreen: React.FC = () => {
           {t("companion_login.align_qr")}
         </Text>
 
+        {/* The code field with the camera, not behind a button: scan or
+            type, whichever comes first. */}
+        <Text className='mt-6 mb-2 text-center text-sm text-gray-300'>
+          {t("companion_login.or_type_code")}
+        </Text>
+        <PinInput
+          testID='scanner-code'
+          value={code}
+          onChangeText={handleScannerCode}
+          inBottomSheet={false}
+          inputAccessoryViewID={toolbarId}
+        />
+
         <TouchableOpacity
           onPress={handleEnterCodeManually}
           className='mt-4 px-5 py-2'
@@ -462,6 +486,6 @@ export const CompanionLoginScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };

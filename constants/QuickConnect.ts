@@ -14,3 +14,6 @@ export const QUICK_CONNECT_POLL_INTERVAL_MS = 1000;
  * request that never settles would stop it for good.
  */
 export const QUICK_CONNECT_REQUEST_TIMEOUT_MS = 15 * 1000;
+
+/** How many digits a Jellyfin Quick Connect code has. */
+export const QUICK_CONNECT_CODE_LENGTH = 6;

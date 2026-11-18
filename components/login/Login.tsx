@@ -522,6 +522,7 @@ export const Login: React.FC = () => {
         code={quickConnectCode}
         status={quickConnectStatus}
         serverName={serverName || api?.basePath || ""}
+        serverUrl={api?.basePath}
         onNewCode={handleQuickConnect}
         onClose={closeQuickConnectSheet}
       />

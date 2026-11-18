@@ -30,9 +30,55 @@ jest.mock("@gorhom/bottom-sheet", () => {
   };
 });
 
+// The QR code itself is native SVG; what matters is the address it carries.
+jest.mock("react-native-qrcode-svg", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    __esModule: true,
+    default: (props: { value: string }) => (
+      <Text testID='pairing-qr'>{props.value}</Text>
+    ),
+  };
+});
+
 describe("QuickConnectCodeModal", () => {
   beforeEach(() => {
     mockSheetChange = undefined;
+  });
+
+  // A TV shows a QR code with its code; a phone or an iPad signing in now
+  // does too, so another phone's camera or Streamyfin can sign it in (#11).
+  test("shows a QR code that carries the code", async () => {
+    await render(
+      <QuickConnectCodeModal
+        code='123456'
+        status='waiting'
+        serverName='Media'
+        serverUrl='https://jellyfin.example.com'
+        onNewCode={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("pairing-qr").props.children).toBe(
+      "https://jellyfin.example.com/web/#/quickconnect?code=123456",
+    );
+    expect(screen.getByText("123456")).toBeTruthy();
+  });
+
+  test("shows no QR code once the code has expired", async () => {
+    await render(
+      <QuickConnectCodeModal
+        code='123456'
+        status='expired'
+        serverName='Media'
+        serverUrl='https://jellyfin.example.com'
+        onNewCode={() => {}}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.queryByTestId("pairing-qr")).toBeNull();
   });
 
   test("replaces a server-expired code with a new-code action", async () => {

@@ -31,7 +31,7 @@ function SettingsMobile() {
   const insets = useSafeAreaInsets();
   const { supported: notificationsSupported, mine: notifications } =
     useMyNotifications();
-  const [_user] = useAtom(userAtom);
+  const [user] = useAtom(userAtom);
   const { logout } = useJellyfin();
 
   const navigation = useNavigation();
@@ -68,7 +68,21 @@ function SettingsMobile() {
           <UserInfo />
         </View>
 
-        <QuickConnect className='mb-4' />
+        {/* One entry signs in a TV, an iPad or a browser: scan its QR code or
+            type its code. Approving for another account takes the user
+            picker of the Quick Connect sheet, an administrator's. */}
+        <View className='mb-4'>
+          <ListGroup title={t("pairing.sign_in_another_device_title")}>
+            <ListItem
+              onPress={() =>
+                router.push("/(auth)/(tabs)/(more)/companion-login")
+              }
+              title={t("pairing.sign_in_another_device")}
+              textColor='blue'
+            />
+          </ListGroup>
+        </View>
+        {user?.Policy?.IsAdministrator && <QuickConnect className='mb-4' />}
 
         {syncPlayAvailable && (
           <View className='mb-4'>
@@ -89,20 +103,6 @@ function SettingsMobile() {
             </ListGroup>
           </View>
         )}
-
-        {/* On every phone: Quick Connect needs no local network access.
-            Covered by components/companion/companionLoginEntry.test.tsx. */}
-        <View className='mb-4'>
-          <ListGroup title={t("pairing.pair_with_phone_title")}>
-            <ListItem
-              onPress={() =>
-                router.push("/(auth)/(tabs)/(more)/companion-login")
-              }
-              title={t("pairing.pair_with_phone")}
-              textColor='blue'
-            />
-          </ListGroup>
-        </View>
 
         <View className='mb-4'>
           <AppLanguageSelector />

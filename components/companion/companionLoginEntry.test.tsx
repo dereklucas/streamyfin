@@ -1,16 +1,32 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
+import { createStore, Provider as JotaiProvider } from "jotai";
 import { Platform } from "react-native";
 import Settings from "@/app/(auth)/(tabs)/(more)/settings";
+import { userAtom } from "@/providers/JellyfinProvider";
 
 const mockPush = jest.fn();
 jest.mock("@/hooks/useAppRouter", () => ({
   __esModule: true,
   default: () => ({ push: mockPush }),
 }));
+let mockAdmin = false;
+const renderSettings = async () => {
+  const store = createStore();
+  store.set(userAtom, {
+    Id: "user-1",
+    Name: "Ada",
+    Policy: { IsAdministrator: mockAdmin },
+  } as never);
+  await render(
+    <JotaiProvider store={store}>
+      <Settings />
+    </JotaiProvider>,
+  );
+};
 jest.mock("@/providers/JellyfinProvider", () => {
   const { atom } = jest.requireActual("jotai");
   return {
-    userAtom: atom({ Id: "user-1", Name: "Ada" }),
+    userAtom: atom(null),
     useJellyfin: () => ({ logout: jest.fn() }),
   };
 });
@@ -22,7 +38,10 @@ jest.mock("@/components/settings/AppLanguageSelector", () => ({
   AppLanguageSelector: () => null,
 }));
 jest.mock("@/components/settings/QuickConnect", () => ({
-  QuickConnect: () => null,
+  QuickConnect: () => {
+    const { Text } = jest.requireActual("react-native");
+    return <Text>quick-connect-for-another-user</Text>;
+  },
 }));
 jest.mock("@/components/settings/StorageSettings", () => ({
   StorageSettings: () => null,
@@ -37,16 +56,32 @@ jest.mock("@/providers/SyncPlayProvider", () => ({
   useSyncPlay: () => ({ available: false }),
 }));
 
-describe("Settings, Log in on TV", () => {
+describe("Settings, sign in another device", () => {
+  beforeEach(() => {
+    mockAdmin = false;
+    mockPush.mockClear();
+  });
+
   // The entry was hidden on iOS while pairing went through a UDP broadcast.
   // Quick Connect needs no local network access, so an iPhone gets it too.
-  test("offers to log in on a TV from an iPhone", async () => {
+  // One entry for a TV, an iPad or a browser alike: scan or type (#11).
+  test("offers one entry to sign in another device, from an iPhone", async () => {
     expect(Platform.OS).toBe("ios");
-    await render(<Settings />);
+    await renderSettings();
 
-    await fireEvent.press(screen.getByText("pairing.pair_with_phone"));
+    await fireEvent.press(screen.getByText("pairing.sign_in_another_device"));
     expect(mockPush).toHaveBeenCalledWith(
       "/(auth)/(tabs)/(more)/companion-login",
     );
+    expect(screen.queryByText("quick-connect-for-another-user")).toBeNull();
+  });
+
+  // Approving a code for another account is an administrator's, and only
+  // the Quick Connect sheet picks the account.
+  test("keeps the sheet that approves for another user, for administrators", async () => {
+    mockAdmin = true;
+    await renderSettings();
+
+    expect(screen.getByText("quick-connect-for-another-user")).toBeTruthy();
   });
 });

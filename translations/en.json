@@ -17,7 +17,7 @@
     "password_placeholder": "Password",
     "login_button": "Log in",
     "quick_connect": "Quick Connect",
-    "quick_connect_instructions": "Enter this code on a signed-in device. You'll be logged in automatically.",
+    "quick_connect_instructions": "Scan the QR code with a phone where you're signed in, or enter the code there. You'll be signed in automatically.",
     "tap_code_to_copy": "Tap the code to copy it",
     "code_copied": "Code copied",
     "failed_to_initiate_quick_connect": "Failed to initiate Quick Connect",
@@ -1442,6 +1442,7 @@
   "companion_login": {
     "title": "Pair with TV",
     "align_qr": "Align the QR code within the frame",
+    "or_type_code": "Or type the code it shows",
     "enter_code_manually": "Enter code manually",
     "pairing_code_label": "Pairing code",
     "authorize_button": "Authorize",
@@ -1463,8 +1464,8 @@
     "open_settings": "Open Settings"
   },
   "pairing": {
-    "pair_with_phone": "Pair with phone",
-    "pair_with_phone_title": "Log in on TV",
+    "sign_in_another_device_title": "Sign in another device",
+    "sign_in_another_device": "Scan or type its code",
     "scan_quick_connect": "Scan the QR code with the Streamyfin app or your phone's camera.",
     "code_expired": "This code has expired.",
     "get_new_code": "Get a new code",

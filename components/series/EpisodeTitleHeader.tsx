@@ -15,6 +15,18 @@ export const EpisodeTitleHeader: React.FC<Props> = ({ item, ...props }) => {
 
   return (
     <View {...props}>
+      {/* The way back to the show, above the title as in Apple TV. */}
+      {item.SeriesId && item.SeriesName ? (
+        <TouchableOpacity
+          accessibilityRole='link'
+          onPress={() => router.push(`/(auth)/series/${item.SeriesId}`)}
+          className='self-start'
+        >
+          <Text className='font-semibold text-base text-neutral-300'>
+            {item.SeriesName}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       <Text className='font-bold text-2xl' selectable>
         {item?.Name}
       </Text>

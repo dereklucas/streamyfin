@@ -1,17 +1,13 @@
 import { getShowApi } from "@jellyfin/sdk/lib/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
-import type React from "react";
-import { useTranslation } from "react-i18next";
-import { CardRow } from "@/components/cards/CardRow";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 
-export const NextUp: React.FC<{ seriesId: string }> = ({ seriesId }) => {
+/** A show's next episodes, shared by the Next up row and the Up next card. */
+export const useNextUp = (seriesId: string) => {
   const [user] = useAtom(userAtom);
   const [api] = useAtom(apiAtom);
-  const { t } = useTranslation();
-
-  const { data: items, isLoading } = useQuery({
+  return useQuery({
     queryKey: ["nextUp", seriesId],
     queryFn: async () => {
       if (!api) return null;
@@ -27,18 +23,4 @@ export const NextUp: React.FC<{ seriesId: string }> = ({ seriesId }) => {
     enabled: !!api && !!seriesId && !!user?.Id,
     staleTime: 0,
   });
-
-  return (
-    <CardRow
-      enableActionSheet
-      title={t("item_card.next_up")}
-      kind='wide'
-      items={items ?? []}
-      useEpisodePoster
-      loading={isLoading}
-      // A finished show, or one not started, has nothing next: no section.
-      hideIfEmpty
-      className='mb-4'
-    />
-  );
 };

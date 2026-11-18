@@ -18,13 +18,13 @@ import { Image } from "@/components/common/ServerImage";
 import { DownloadItems } from "@/components/DownloadItem";
 import { ParallaxScrollView } from "@/components/ParallaxPage";
 import { SimilarItems } from "@/components/SimilarItems";
-import { NextUp } from "@/components/series/NextUp";
 import {
   SeasonPicker,
   seasonIndexAtom,
 } from "@/components/series/SeasonPicker";
 import { SeriesHeader } from "@/components/series/SeriesHeader";
 import { TVSeriesPage } from "@/components/series/TVSeriesPage";
+import { UpNextCard } from "@/components/series/UpNextCard";
 import { useSeriesQueries } from "@/components/series/useSeriesQueries";
 import { SyncPlayButton } from "@/components/syncplay/SyncPlayButton";
 import { LOGO_HEIGHT } from "@/constants/Images";
@@ -248,8 +248,9 @@ const page: React.FC = () => {
       >
         <View className='flex flex-col pt-4'>
           <SeriesHeader item={item} />
-          {/* Spaces itself, and leaves no gap when it hides. */}
-          {!isOffline && <NextUp seriesId={seriesId} />}
+          {/* The next episode, ready to resume; nothing when nothing is
+              next. Spaces itself. */}
+          {!isOffline && <UpNextCard seriesId={seriesId} />}
           {allEpisodes !== undefined && (
             <SeasonPicker item={item} initialSeasonIndex={initialSeasonIndex} />
           )}

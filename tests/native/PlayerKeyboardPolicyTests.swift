@@ -89,6 +89,48 @@ enum PlayerKeyboardPolicyTests {
             "no SyncPlay seek request under a scrub"
         )
 
+        // YouTube's letters (#4)
+        expect(press(.character("k"), idle) == .togglePlayPause, "K plays and pauses")
+        expect(press(.character("K"), idle) == .togglePlayPause, "letters match in either case")
+        expect(press(.character("j"), idle) == .seekBackward, "J seeks back")
+        expect(press(.character("l"), idle) == .seekForward, "L seeks forward")
+        expect(press(.character("j"), with { $0.canSeek = false }) == nil, "no J seek between two episodes")
+        expect(
+            press(.character("l"), with { $0.subtitleScaleShown = true }) == .seekForward,
+            "the size slider takes the arrows, not L"
+        )
+        expect(
+            press(.character("l"), with { $0.syncPlayActive = true }) == .seekForward,
+            "L asks the group in SyncPlay, one press one request"
+        )
+        expect(press(.character("m"), idle) == .toggleMute, "M mutes")
+        expect(press(.character("n"), idle) == nil, "N does nothing without a next episode")
+        expect(
+            press(.character("n"), with { $0.hasNextEpisode = true }) == .playNextEpisode,
+            "N goes to the next episode"
+        )
+        expect(press(.character(">"), idle) == .speedUp, "> speeds up")
+        expect(press(.character("<"), idle) == .speedDown, "< slows down")
+        expect(press(.character(">"), with { $0.syncPlayActive = true }) == nil, "the group sets the speed")
+        expect(press(.character("0"), idle) == .seekToFraction(0), "0 goes to the start")
+        expect(press(.character("7"), idle) == .seekToFraction(0.7), "7 goes to 70%")
+        expect(press(.character("7"), with { $0.canSeek = false }) == nil, "no digit seek between two episodes")
+        expect(press(.character("k"), modified: true, idle) == nil, "Command-K is someone else's")
+        expect(press(.character("k"), with { $0.overlayOwnsInput = true }) == nil, "letters go to the overlay")
+        expect(press(.character("j"), with { $0.isScrubbing = true }) == nil, "no letter fights a scrub")
+        expect(press(.character("q"), idle) == nil, "an unknown letter goes up the chain")
+        expect(press(.escape, idle) == .close, "Esc closes the player")
+        expect(press(.escape, with { $0.overlayOwnsInput = true }) == nil, "Esc goes to the overlay first")
+        expect(command(.escape, idle) == nil, "Esc is a press, not a command")
+
+        // Speed steps
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 1.0, up: true) == 1.25, "1× steps up to 1.25×")
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 1.0, up: false) == 0.75, "1× steps down to 0.75×")
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 2.0, up: true) == nil, "nothing past 2×")
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 0.25, up: false) == nil, "nothing under 0.25×")
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 1.1, up: true) == 1.25, "between steps, the next one up")
+        expect(PlayerKeyboardPolicy.nextSpeed(from: 1.1, up: false) == 1.0, "between steps, the next one down")
+
         print("PlayerKeyboardPolicy tests passed")
     }
 }

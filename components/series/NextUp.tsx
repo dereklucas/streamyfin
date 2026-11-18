@@ -2,11 +2,16 @@ import { getShowApi } from "@jellyfin/sdk/lib/utils/api";
 import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import type React from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { CardRow } from "@/components/cards/CardRow";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 
-export const NextUp: React.FC<{ seriesId: string }> = ({ seriesId }) => {
+export const NextUp: React.FC<{
+  seriesId: string;
+  /** Told once it is known whether there is anything next. */
+  onSettled?: () => void;
+}> = ({ seriesId, onSettled }) => {
   const [user] = useAtom(userAtom);
   const [api] = useAtom(apiAtom);
   const { t } = useTranslation();
@@ -27,6 +32,10 @@ export const NextUp: React.FC<{ seriesId: string }> = ({ seriesId }) => {
     enabled: !!api && !!seriesId && !!user?.Id,
     staleTime: 0,
   });
+
+  useEffect(() => {
+    if (!isLoading) onSettled?.();
+  }, [isLoading, onSettled]);
 
   return (
     <CardRow

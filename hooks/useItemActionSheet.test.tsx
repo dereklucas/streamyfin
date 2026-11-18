@@ -205,23 +205,9 @@ describe("useItemActionSheet", () => {
     });
   });
 
-  test("goes to an episode's show", async () => {
-    mockPush.mockClear();
-    const episode: BaseItemDto = {
-      Id: "e1",
-      Type: "Episode",
-      SeriesId: "series-1",
-      ParentIndexNumber: 2,
-    };
-
-    await choose(episode, "item_card.menu.go_to_show");
-
-    expect(mockPush).toHaveBeenCalledWith(
-      expect.objectContaining({ params: { id: "series-1" } }),
-    );
-  });
-
-  test("goes to an episode's season on the show page", async () => {
+  // Go to show and Go to season opened the same page; one action opens the
+  // show at the episode's season (tapping the card opens the episode).
+  test("goes to an episode's show, at its season", async () => {
     mockPush.mockClear();
     const episode: BaseItemDto = {
       Id: "e1",
@@ -231,11 +217,29 @@ describe("useItemActionSheet", () => {
       ParentIndexNumber: 2,
     };
 
-    await choose(episode, "item_card.menu.go_to_season");
+    await choose(episode, "item_card.menu.go_to_show");
 
     expect(mockPush).toHaveBeenCalledWith(
       expect.objectContaining({
         params: expect.objectContaining({ id: "series-1", seasonIndex: "2" }),
+      }),
+    );
+  });
+
+  test("goes to a season's show, at that season", async () => {
+    mockPush.mockClear();
+    const season: BaseItemDto = {
+      Id: "season-3",
+      Type: "Season",
+      SeriesId: "series-1",
+      IndexNumber: 3,
+    };
+
+    await choose(season, "item_card.menu.go_to_show");
+
+    expect(mockPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({ id: "series-1", seasonIndex: "3" }),
       }),
     );
   });

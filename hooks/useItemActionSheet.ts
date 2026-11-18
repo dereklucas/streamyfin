@@ -60,30 +60,29 @@ export function useItemActions(item: BaseItemDto) {
         case "playNext":
           await playNextEpisode(item);
           return;
-        case "goToSeries":
+        case "goToSeries": {
           if (!item.SeriesId) return;
+          // The show, at the episode's (or the season's own) season: a
+          // season opens as its series page, on that season.
+          const seasonIndex =
+            item.Type === "Season" ? item.IndexNumber : item.ParentIndexNumber;
           router.push(
             getItemNavigation(
-              { Id: item.SeriesId, Type: "Series" },
+              seasonIndex != null
+                ? {
+                    Id:
+                      (item.Type === "Season" ? item.Id : item.SeasonId) ??
+                      undefined,
+                    Type: "Season",
+                    SeriesId: item.SeriesId,
+                    IndexNumber: seasonIndex,
+                  }
+                : { Id: item.SeriesId, Type: "Series" },
               from,
             ) as never,
           );
           return;
-        case "goToSeason":
-          if (!item.SeriesId || item.ParentIndexNumber == null) return;
-          // A season opens as its series page, scrolled to that season.
-          router.push(
-            getItemNavigation(
-              {
-                Id: item.SeasonId ?? undefined,
-                Type: "Season",
-                SeriesId: item.SeriesId,
-                IndexNumber: item.ParentIndexNumber,
-              },
-              from,
-            ) as never,
-          );
-          return;
+        }
         case "shuffle":
           await shuffleSeries(item, { isOffline });
           return;

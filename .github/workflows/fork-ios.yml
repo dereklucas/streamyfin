@@ -9,7 +9,11 @@
 #   signing, remote build number) and upload to TestFlight (`eas submit`).
 # - Push to fix/* or feat/*: publish a JS update to a channel named after the
 #   branch (More → Developer can follow it), only when its native code matches
-#   a shipped build. Branches never build.
+#   a shipped build. A push to a branch never builds.
+# - Run by hand (Actions → Run workflow) on any branch: builds that branch
+#   when no shipped build has its native code (or "full build" is ticked),
+#   for testing native work before it is merged. The build goes to TestFlight
+#   like any other; follow the branch from More → Developer for its updates.
 #
 # A shipped build is recorded as the tag `ios-build/<fingerprint>` (local
 # builds do not show up in EAS's build list). Builds made by EAS before the
@@ -138,7 +142,7 @@ jobs:
   build:
     name: Build iOS and upload to TestFlight
     needs: decide
-    if: github.ref_name == 'development' && (needs.decide.outputs.shipped != 'true' || inputs.full_build)
+    if: (github.ref_name == 'development' || github.event_name == 'workflow_dispatch') && (needs.decide.outputs.shipped != 'true' || inputs.full_build)
     runs-on: macos-26
     timeout-minutes: 120
     env:

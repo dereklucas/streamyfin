@@ -81,6 +81,15 @@ Native code in this app: the video player controls
 (`modules/hero-carousel`), downloads and the Live Activity. Everything in
 `app/` and `components/` is JS.
 
+### What to test
+
+Every build and update carries the commits since the build it is made on
+(`scripts/fork/build-notes.sh`, newest first, without the fork's own
+plumbing). TestFlight shows them as the build's "What to Test", under the
+branch and commit it was built from. In the app, More → Developer lists
+them under **What to test**: an update's own list while one runs, the
+build's otherwise.
+
 ### Developer screen and branch previews
 
 More → **Developer** (fork only) shows what's running: the app version

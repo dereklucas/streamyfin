@@ -76,6 +76,11 @@ yet (what a Claude session uses, as it cannot start a run by hand). Without a se
 `eas build -p ios --profile production --auto-submit` builds on EAS (its
 own monthly build quota).
 
+If the macOS job sits queued for about 15 minutes and then shows as
+cancelled with no log, no runner picked it up (GitHub's "job was not
+acquired" failure, usually a short supply of macos-26 runners). Nothing in
+the change is wrong: re-run the failed job from Actions, or push again.
+
 Native code in this app: the video player controls
 (`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel
 (`modules/hero-carousel`), downloads and the Live Activity. Everything in

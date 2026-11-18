@@ -48,6 +48,7 @@ import {
 import { useSettings } from "@/utils/atoms/settings";
 import { fetchCustomHomeSection } from "@/utils/customHomeSection";
 import { eventBus } from "@/utils/eventBus";
+import { showsSuggestedMovies } from "@/utils/home/suggestedMovies";
 import { recentlyAddedSeeAllParams } from "@/utils/library/seeAll";
 import { storage } from "@/utils/mmkv";
 
@@ -401,7 +402,7 @@ const HomeMobile = () => {
       ...upcomingSections,
       ...latestMediaViews.map((s) => ({ ...s, priority: 2 as const })),
       // Only show Jellyfin suggested movies if StreamyStats recommendations are disabled
-      ...(!settings?.streamyStatsMovieRecommendations
+      ...(showsSuggestedMovies(settings)
         ? [
             {
               title: t("home.suggested_movies"),
@@ -431,6 +432,7 @@ const HomeMobile = () => {
     latestMediaLibraries,
     t,
     settings?.streamyStatsMovieRecommendations,
+    settings?.showSuggestedMovies,
     settings.mergeNextUpAndContinueWatching,
     settings.showUpcomingOnHome,
   ]);

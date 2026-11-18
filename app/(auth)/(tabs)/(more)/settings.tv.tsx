@@ -1509,6 +1509,12 @@ export default function SettingsTV() {
             onToggle={(value) => updateSettings({ showUpcomingOnHome: value })}
           />
           <TVSettingsToggle
+            label={t("home.settings.appearance.show_suggested_movies")}
+            value={settings.showSuggestedMovies !== false}
+            onToggle={(value) => updateSettings({ showSuggestedMovies: value })}
+            disabledByAdmin={pluginSettings?.showSuggestedMovies?.locked}
+          />
+          <TVSettingsToggle
             label={t("home.settings.appearance.use_episode_images_next_up")}
             value={settings.useEpisodeImagesForNextUp}
             onToggle={(value) =>

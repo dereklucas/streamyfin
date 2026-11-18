@@ -48,6 +48,7 @@ import {
 import { useSettings } from "@/utils/atoms/settings";
 import { fetchCustomHomeSection } from "@/utils/customHomeSection";
 import { eventBus } from "@/utils/eventBus";
+import { orderByRecentActivity } from "@/utils/home/recentActivity";
 import { recentlyAddedSeeAllParams } from "@/utils/library/seeAll";
 import { storage } from "@/utils/mmkv";
 
@@ -275,25 +276,6 @@ const HomeMobile = () => {
         },
       );
 
-    // Helper to sort items by most recent activity
-    const sortByRecentActivity = (items: BaseItemDto[]): BaseItemDto[] => {
-      return items.sort((a, b) => {
-        const dateA = a.UserData?.LastPlayedDate || a.DateCreated || "";
-        const dateB = b.UserData?.LastPlayedDate || b.DateCreated || "";
-        return new Date(dateB).getTime() - new Date(dateA).getTime();
-      });
-    };
-
-    // Helper to deduplicate items by ID
-    const deduplicateById = (items: BaseItemDto[]): BaseItemDto[] => {
-      const seen = new Set<string>();
-      return items.filter((item) => {
-        if (!item.Id || seen.has(item.Id)) return false;
-        seen.add(item.Id);
-        return true;
-      });
-    };
-
     // Build the first sections based on merge setting
     const firstSections: Section[] = settings.mergeNextUpAndContinueWatching
       ? [
@@ -322,10 +304,38 @@ const HomeMobile = () => {
               const resumeItems = resumeResponse.data.Items || [];
               const nextUpItems = nextUpResponse.data.Items || [];
 
-              // Combine, sort by recent activity, deduplicate
-              const combined = [...resumeItems, ...nextUpItems];
-              const sorted = sortByRecentActivity(combined);
-              const deduplicated = deduplicateById(sorted);
+              // When each Next Up episode's show was last watched: the
+              // episode itself never was (spec: utils/home/recentActivity).
+              const seriesIds = [
+                ...new Set(
+                  nextUpItems.flatMap((item) =>
+                    item.SeriesId ? [item.SeriesId] : [],
+                  ),
+                ),
+              ];
+              const seriesLastPlayed: Record<
+                string,
+                string | null | undefined
+              > = {};
+              if (seriesIds.length > 0) {
+                const series = await getLibraryApi(api)
+                  .getItems({
+                    userId: user.Id,
+                    ids: seriesIds,
+                    enableTotalRecordCount: false,
+                  })
+                  .catch(() => null);
+                for (const show of series?.data.Items ?? []) {
+                  if (show.Id) {
+                    seriesLastPlayed[show.Id] = show.UserData?.LastPlayedDate;
+                  }
+                }
+              }
+              const deduplicated = orderByRecentActivity(
+                resumeItems,
+                nextUpItems,
+                seriesLastPlayed,
+              );
 
               // Paginate client-side
               return deduplicated.slice(pageParam, pageParam + 10);

@@ -30,6 +30,8 @@ final class NativePlayerViewController: UIViewController {
 	private let belowPictureSubtitleView = BelowPictureSubtitleView()
 	private var subtitleLine: String?
 	private var subtitleIsPlainText = false
+	/// Black bars baked into the frame, as a share of its height at each end.
+	private var bakedLetterboxFraction: CGFloat = 0
 	#endif
 	#if os(tvOS)
 	/// UIKit-side focus orchestration between the stacked layer hosts —
@@ -142,6 +144,11 @@ final class NativePlayerViewController: UIViewController {
 			guard let self else { return }
 			self.subtitleLine = text
 			self.subtitleIsPlainText = isPlainText
+			self.updateBelowPictureSubtitles()
+		}
+		engine.onBakedLetterbox = { [weak self] fraction in
+			guard let self else { return }
+			self.bakedLetterboxFraction = CGFloat(fraction)
 			self.updateBelowPictureSubtitles()
 		}
 		#endif
@@ -383,7 +390,8 @@ final class NativePlayerViewController: UIViewController {
 			wanted
 			? BelowPictureSubtitlePlacement.frame(
 				container: container, videoAspect: aspect,
-				bottomInset: view.safeAreaInsets.bottom, lineHeight: lineHeight)
+				bottomInset: view.safeAreaInsets.bottom, lineHeight: lineHeight,
+				bakedBarFraction: bakedLetterboxFraction)
 			: nil
 
 		engine.setBelowPictureSubtitlesActive(frame != nil)

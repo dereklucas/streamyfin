@@ -32,11 +32,16 @@ protocol MPVLayerRendererDelegate: AnyObject {
     /// off), and whether the selected track is plain text, which a label can
     /// draw below the picture; styled (ASS) and image subtitles cannot be.
     func renderer(_ renderer: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool)
+    /// The share of the frame's height that is black at each end inside the
+    /// frame (a 2.39:1 film encoded at 16:9), or 0, once per file; see
+    /// `BakedLetterbox`.
+    func renderer(_ renderer: MPVLayerRenderer, didDetectBakedLetterbox barFraction: Double)
 }
 
 extension MPVLayerRendererDelegate {
     func renderer(_ renderer: MPVLayerRenderer, didChangeAnamorphicAspect aspect: Double?) {}
     func renderer(_ renderer: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {}
+    func renderer(_ renderer: MPVLayerRenderer, didDetectBakedLetterbox barFraction: Double) {}
 }
 
 /// MPV player using vo_avfoundation for video output.
@@ -84,6 +89,13 @@ final class MPVLayerRenderer {
     private var burnedInSubtitlesHidden = false
     private var subtitleIsPlainText = false
     private var subtitleText: String?
+    /// Baked-in letterbox detection for the file playing: its samples so far,
+    /// and the file they belong to. Renderer queue only.
+    private var bakedLetterboxSamples: [Double] = []
+    private var bakedLetterboxFile = 0
+    /// When the frames are sampled, in seconds after the file loads: a few,
+    /// spread out, so one dark scene does not decide.
+    private static let bakedLetterboxSampleDelays: [Double] = [10, 40, 80]
     /// Subtitle codecs mpv reports for text a label can draw as is.
     private static let plainTextSubtitleCodecs: Set<String> = [
         "subrip", "srt", "webvtt", "vtt", "mov_text", "text", "microdvd",
@@ -1010,6 +1022,9 @@ final class MPVLayerRenderer {
 
         case MPV_EVENT_FILE_LOADED:
             applySubtitleLayout()
+            #if os(iOS)
+            scheduleBakedLetterboxSamples()
+            #endif
             // Add external subtitles now that the file is loaded
             if !pendingExternalSubtitles.isEmpty, let handle = mpv {
                 for (index, subUrl) in pendingExternalSubtitles.enumerated() {
@@ -1139,6 +1154,92 @@ final class MPVLayerRenderer {
         }
     }
     
+    #if os(iOS)
+    /// Samples a few frames of the new file for black bars baked into it and
+    /// tells the delegate what they say. A screenshot of the video alone, no
+    /// filter: a cropdetect filter would take hardware decoding off.
+    private func scheduleBakedLetterboxSamples() {
+        bakedLetterboxFile += 1
+        bakedLetterboxSamples = []
+        let file = bakedLetterboxFile
+        // The last file's bars are not this one's: none until it is sampled.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.delegate?.renderer(self, didDetectBakedLetterbox: 0)
+        }
+        for delay in Self.bakedLetterboxSampleDelays {
+            queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self, self.bakedLetterboxFile == file, let handle = self.mpv else { return }
+                guard let rows = self.frameRowLuma(handle: handle) else { return }
+                self.bakedLetterboxSamples.append(BakedLetterbox.barFraction(rowLuma: rows))
+                guard self.bakedLetterboxSamples.count == Self.bakedLetterboxSampleDelays.count else { return }
+                let bar = BakedLetterbox.combine(self.bakedLetterboxSamples)
+                Logger.shared.log(
+                    "Baked-in letterbox: \(String(format: "%.3f", bar)) of the frame at each end"
+                        + " (samples \(self.bakedLetterboxSamples.map { String(format: "%.3f", $0) }))",
+                    type: "Info")
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.delegate?.renderer(self, didDetectBakedLetterbox: bar)
+                }
+            }
+        }
+    }
+
+    /// The current frame's rows as average brightness, 0...1, from mpv's raw
+    /// screenshot of the video alone (no subtitles, no OSD). Every 8th pixel
+    /// of a row is enough to tell black from picture.
+    private func frameRowLuma(handle: OpaquePointer) -> [Double]? {
+        let strings = ["screenshot-raw", "video", "bgr0"]
+        let cStrings = strings.map { strdup($0) }
+        defer { cStrings.forEach { free($0) } }
+        var argv: [UnsafePointer<CChar>?] = cStrings.map { UnsafePointer($0) } + [nil]
+        var result = mpv_node()
+        let status = argv.withUnsafeMutableBufferPointer { mpv_command_ret(handle, $0.baseAddress, &result) }
+        guard status >= 0 else {
+            Logger.shared.log("Baked-in letterbox: screenshot failed (\(status))", type: "Warn")
+            return nil
+        }
+        defer { mpv_free_node_contents(&result) }
+        guard result.format == MPV_FORMAT_NODE_MAP, let fields = result.u.list?.pointee else { return nil }
+
+        var width = 0, height = 0, stride = 0
+        var bytes: UnsafeRawPointer?
+        var size = 0
+        for index in 0..<Int(fields.num) {
+            guard let key = fields.keys[index].map({ String(cString: $0) }) else { continue }
+            let value = fields.values[index]
+            switch key {
+            case "w" where value.format == MPV_FORMAT_INT64: width = Int(value.u.int64)
+            case "h" where value.format == MPV_FORMAT_INT64: height = Int(value.u.int64)
+            case "stride" where value.format == MPV_FORMAT_INT64: stride = Int(value.u.int64)
+            case "data" where value.format == MPV_FORMAT_BYTE_ARRAY:
+                if let array = value.u.ba?.pointee {
+                    bytes = UnsafeRawPointer(array.data)
+                    size = array.size
+                }
+            default: break
+            }
+        }
+        guard width > 0, height > 0, stride >= width * 4, let bytes, size >= stride * height else { return nil }
+
+        let pixels = bytes.assumingMemoryBound(to: UInt8.self)
+        let step = 8
+        return (0..<height).map { row in
+            var sum = 0
+            var count = 0
+            let start = row * stride
+            for column in Swift.stride(from: 0, to: width, by: step) {
+                let offset = start + column * 4
+                // bgr0: blue, green, red, unused.
+                sum += Int(pixels[offset]) + Int(pixels[offset + 1]) + Int(pixels[offset + 2])
+                count += 3
+            }
+            return count > 0 ? Double(sum) / Double(count) / 255 : 0
+        }
+    }
+    #endif
+
     private func notifySubtitleText() {
         let text = subtitleText
         let isPlainText = subtitleIsPlainText

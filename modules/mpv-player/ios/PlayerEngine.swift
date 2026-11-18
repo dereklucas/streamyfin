@@ -63,6 +63,9 @@ final class MPVPlayerEngine: NSObject {
 	/// iOS player does). A host that keeps the layer at its own bounds keeps
 	/// the fit and fill gravities, as a stretch there would distort.
 	var hostSizesAnamorphicLayer = false
+	/// The share of the frame that is black at each end inside it (0 for
+	/// none), once per file, for the host's below-picture placement. Main.
+	var onBakedLetterbox: ((Double) -> Void)?
 	/// The host draws plain-text subtitles below the picture itself, so the
 	/// burned-in copy is hidden (except in PiP, which shows only that copy).
 	private var belowPictureSubtitlesActive = false
@@ -860,6 +863,10 @@ extension MPVPlayerEngine: MPVLayerRendererDelegate {
 
 	func renderer(_: MPVLayerRenderer, didChangeSubtitleText text: String?, isPlainText: Bool) {
 		onSubtitleText?(text, isPlainText)
+	}
+
+	func renderer(_: MPVLayerRenderer, didDetectBakedLetterbox barFraction: Double) {
+		onBakedLetterbox?(barFraction)
 	}
 }
 

@@ -31,6 +31,7 @@ import { LOGO_HEIGHT } from "@/constants/Images";
 import useDefaultPlaySettings from "@/hooks/useDefaultPlaySettings";
 import { useImageColorsReturn } from "@/hooks/useImageColorsReturn";
 import { useOrientation } from "@/hooks/useOrientation";
+import { useRevealWhenReady } from "@/hooks/useRevealWhenReady";
 import { useVersionItemState } from "@/hooks/useVersionItem";
 import * as ScreenOrientation from "@/packages/expo-screen-orientation";
 import { useDownload } from "@/providers/DownloadProvider";
@@ -74,6 +75,9 @@ interface ItemContentProps {
 }
 
 // Mobile-specific implementation
+/** The longest the item page waits for its media sources before showing. */
+const ITEM_PAGE_REVEAL_TIMEOUT_MS = 2500;
+
 const ItemContentMobile: React.FC<ItemContentProps> = ({
   item,
   itemWithSources,
@@ -154,6 +158,13 @@ const ItemContentMobile: React.FC<ItemContentProps> = ({
   const loading = useMemo(() => {
     return Boolean(logoUrl && loadingLogo);
   }, [loadingLogo, logoUrl]);
+
+  // The media sources decide the technical details, which pushed everything
+  // under them down as they landed.
+  const bodyRevealed = useRevealWhenReady(
+    [isOffline || itemWithSources !== undefined],
+    ITEM_PAGE_REVEAL_TIMEOUT_MS,
+  );
 
   // Needs to automatically change the selected to the default values for default indexes.
   useEffect(() => {
@@ -328,33 +339,38 @@ const ItemContentMobile: React.FC<ItemContentProps> = ({
               </Text>
             )}
           </View>
-          {item.Type === "Episode" && (
-            <SeasonEpisodesCarousel item={item} loading={loading} />
-          )}
-
-          {!isOffline &&
-            selectedOptions.mediaSource?.MediaStreams &&
-            selectedOptions.mediaSource.MediaStreams.length > 0 && (
-              <ItemTechnicalDetails source={selectedOptions.mediaSource} />
+          {/* Below the Play row the page fills in from the item's media
+              sources (technical details) and its season: invisible until
+              they settle, so it shows whole (hooks/useRevealWhenReady). */}
+          <View style={{ opacity: bodyRevealed ? 1 : 0 }}>
+            {item.Type === "Episode" && (
+              <SeasonEpisodesCarousel item={item} loading={loading} />
             )}
 
-          <OverviewText text={item.Overview} className='px-4 mb-4' />
-
-          <ItemCredits people={item.People} className='px-4 mb-4' />
-
-          {item.Type !== "Program" && (
-            <>
-              {item.Type === "Episode" && !isOffline && (
-                <CurrentSeries item={item} className='mb-2' />
+            {!isOffline &&
+              selectedOptions.mediaSource?.MediaStreams &&
+              selectedOptions.mediaSource.MediaStreams.length > 0 && (
+                <ItemTechnicalDetails source={selectedOptions.mediaSource} />
               )}
 
-              <ItemPeopleSections item={item} />
+            <OverviewText text={item.Overview} className='px-4 mb-4' />
 
-              {!isOffline && <ItemCollections itemId={item.Id} />}
+            <ItemCredits people={item.People} className='px-4 mb-4' />
 
-              {!isOffline && <SimilarItems item={item} />}
-            </>
-          )}
+            {item.Type !== "Program" && (
+              <>
+                {item.Type === "Episode" && !isOffline && (
+                  <CurrentSeries item={item} className='mb-2' />
+                )}
+
+                <ItemPeopleSections item={item} />
+
+                {!isOffline && <ItemCollections itemId={item.Id} />}
+
+                {!isOffline && <SimilarItems item={item} />}
+              </>
+            )}
+          </View>
         </View>
       </ParallaxScrollView>
     </View>

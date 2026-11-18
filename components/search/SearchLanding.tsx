@@ -9,11 +9,16 @@ import { useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CardRow } from "@/components/cards/CardRow";
 import { SectionHeader } from "@/components/common/SectionHeader";
-import { SEARCH_GENRE_LIMIT } from "@/constants/Search";
+import {
+  SEARCH_GENRE_LIMIT,
+  SEARCH_GENRE_POSTER_CANDIDATES,
+  SEARCH_GENRE_POSTER_COUNT,
+} from "@/constants/Search";
 import useRouter from "@/hooks/useAppRouter";
 import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import { getItemNavigation } from "@/utils/itemNavigation";
-import { getTopGenres } from "@/utils/jellyfin/genres";
+import { getGenrePosters, getTopGenres } from "@/utils/jellyfin/genres";
+import { pickGenrePosters } from "@/utils/search/genrePosters";
 import { GenreTile } from "./GenreTile";
 
 const GENRES_STALE_TIME_MS = 60 * 60 * 1000;
@@ -82,6 +87,31 @@ export const SearchLanding: React.FC<{
     staleTime: GENRES_STALE_TIME_MS,
   });
 
+  // Asked for all tiles at once: which posters a tile gets depends on what
+  // the others show (utils/search/genrePosters.ts).
+  const genreIds = genres.map((genre) => genre.Id!).filter(Boolean);
+  const { data: genrePosters } = useQuery({
+    queryKey: ["search", "genre-posters", user?.Id, genreIds.join(",")],
+    queryFn: async ({ signal }) => {
+      const candidates = await Promise.all(
+        genreIds.map(async (genreId) => ({
+          genreId,
+          // A genre whose posters fail to load shows a bare tile, not none.
+          items: await getGenrePosters({
+            api: api!,
+            userId: user?.Id,
+            genreId,
+            limit: SEARCH_GENRE_POSTER_CANDIDATES,
+            signal,
+          }).catch(() => []),
+        })),
+      );
+      return pickGenrePosters(candidates, SEARCH_GENRE_POSTER_COUNT);
+    },
+    enabled: enabled && genreIds.length > 0,
+    staleTime: GENRES_STALE_TIME_MS,
+  });
+
   const openGenre = useCallback(
     (genre: BaseItemDto) =>
       router.push(
@@ -127,6 +157,7 @@ export const SearchLanding: React.FC<{
               <GenreTile
                 key={genre.Id}
                 genre={genre}
+                posters={genrePosters?.get(genre.Id!) ?? []}
                 width={tileWidth}
                 onPress={openGenre}
               />

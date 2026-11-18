@@ -58,3 +58,9 @@ export const SEARCH_GENRE_POSTER_COUNT = 3;
 
 /** A genre page's size, as a studio page's. */
 export const GENRE_PAGE_SIZE = STUDIO_PAGE_SIZE;
+
+/**
+ * How many of each genre's best rated titles the landing page asks for, to
+ * pick its tile's posters from without repeating a title on another tile.
+ */
+export const SEARCH_GENRE_POSTER_CANDIDATES = 15;

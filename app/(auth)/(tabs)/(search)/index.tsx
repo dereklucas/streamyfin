@@ -50,6 +50,7 @@ import {
 } from "@/components/seerr/SeerrIndexPage";
 import { SEARCH_RESULT_LIMIT } from "@/constants/Search";
 import useRouter from "@/hooks/useAppRouter";
+import { useFocusOnRepeatTabPress } from "@/hooks/useFocusOnRepeatTabPress";
 import { useSearchHistory } from "@/hooks/useSearchHistory";
 import { useSeerr } from "@/hooks/useSeerr";
 import { useServerVersion } from "@/hooks/useServerVersion";
@@ -59,7 +60,6 @@ import { apiAtom, userAtom } from "@/providers/JellyfinProvider";
 import { useSettings } from "@/utils/atoms/settings";
 import { getIntegrationHeaders } from "@/utils/customHeaders";
 import { isAbortLikeError } from "@/utils/errors";
-import { eventBus } from "@/utils/eventBus";
 import { itemRouter } from "@/utils/itemNavigation";
 import { getPrimaryImageUrl } from "@/utils/jellyfin/image/getPrimaryImageUrl";
 import { searchPeople, searchStudios } from "@/utils/jellyfin/search";
@@ -354,20 +354,8 @@ export default function SearchPage() {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    const unsubscribe = eventBus.on("searchTabPressed", () => {
-      // Screen not active
-      if (!searchBarRef.current) {
-        return;
-      }
-      // Screen is active, focus search bar
-      searchBarRef.current?.focus();
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, []);
+  // Covered by hooks/useFocusOnRepeatTabPress.test.tsx.
+  useFocusOnRepeatTabPress(searchBarRef, "searchTabPressed");
 
   const { data: moviesFound, isFetching: l1 } = useQuery({
     queryKey: ["search", "movies", debouncedSearch],

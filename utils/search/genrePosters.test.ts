@@ -2,10 +2,23 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { pickGenrePosters } from "./genrePosters";
 
 const items = (...ids: string[]): BaseItemDto[] => ids.map((Id) => ({ Id }));
-const idsOf = (posters: Map<string, BaseItemDto[]>, genreId: string) =>
-  posters.get(genreId)?.map((item) => item.Id);
+const idsOf = (posters: Record<string, BaseItemDto[]>, genreId: string) =>
+  posters[genreId]?.map((item) => item.Id);
 
 describe("pickGenrePosters", () => {
+  // Kept in the query cache on disk, which writes JSON: a Map would come
+  // back empty.
+  test("answers in a form the disk cache keeps", () => {
+    const posters = pickGenrePosters(
+      [{ genreId: "drama", items: items("a") }],
+      3,
+    );
+
+    expect(JSON.parse(JSON.stringify(posters))).toEqual({
+      drama: [{ Id: "a" }],
+    });
+  });
+
   // The best rated titles belong to several genres at once: Drama, Crime and
   // Thriller all led with the same three posters.
   test("shows a title on one tile only", () => {
@@ -23,7 +36,9 @@ describe("pickGenrePosters", () => {
       3,
     );
 
-    const all = [...posters.values()].flat().map((item) => item.Id);
+    const all = Object.values(posters)
+      .flat()
+      .map((item) => item.Id);
     expect(new Set(all).size).toBe(all.length);
     expect(idsOf(posters, "drama")).toHaveLength(3);
     expect(idsOf(posters, "crime")).toHaveLength(3);

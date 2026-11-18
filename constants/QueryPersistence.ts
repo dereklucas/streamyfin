@@ -39,6 +39,10 @@ export const PERSISTED_QUERY_FAMILIES: readonly string[] = [
   "music-album-tracks",
   "music-playlist",
   "music-playlist-tracks",
+  // The search page's genre tiles: the genre request counts every genre's
+  // titles and can take seconds, so the page shows the last ones at once.
+  "search-genres",
+  "search-genre-posters",
   // How many tracks of each playlist are downloaded: the badge that tells
   // which playlists play without a connection.
   "playlist-tracks-status",

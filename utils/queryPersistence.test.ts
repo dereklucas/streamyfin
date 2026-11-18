@@ -226,6 +226,13 @@ describe("which query families are persisted", () => {
     // both answer.
     ["the server's language preferences", ["authUser"]],
     ["the languages to pick from", ["cultures"]],
+    // The genre request counts every genre's titles and can take seconds;
+    // kept, the search page shows its tiles at once and refreshes them.
+    ["the search page's genres", ["search-genres", "user-1"]],
+    [
+      "the search page's genre posters",
+      ["search-genre-posters", "user-1", "drama"],
+    ],
   ])("%s is persisted", (_name, queryKey) => {
     const client = newClient();
     client.setQueryData(queryKey, { Name: "Alien" });

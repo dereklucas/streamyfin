@@ -50,7 +50,7 @@ export const SearchLanding: React.FC<{
 
   // Asked again each time, so they show as they are now (played state), and
   // one deleted since is left out.
-  const { data: recentItems = [] } = useQuery({
+  const { data: recentItems = [], isPending: recentPending } = useQuery({
     queryKey: ["search", "recent-items", user?.Id, recentItemIds.join(",")],
     queryFn: async ({ signal }) => {
       const response = await getLibraryApi(api!).getItems(
@@ -74,8 +74,10 @@ export const SearchLanding: React.FC<{
       .filter((item): item is BaseItemDto => !!item);
   }, [recentItems, recentItemIds]);
 
-  const { data: genres = [] } = useQuery({
-    queryKey: ["search", "genres", user?.Id],
+  // Kept on disk (constants/QueryPersistence.ts): the request counts every
+  // genre's titles and can take seconds.
+  const { data: genres, isError: genresFailed } = useQuery({
+    queryKey: ["search-genres", user?.Id],
     queryFn: ({ signal }) =>
       getTopGenres({
         api: api!,
@@ -89,9 +91,9 @@ export const SearchLanding: React.FC<{
 
   // Asked for all tiles at once: which posters a tile gets depends on what
   // the others show (utils/search/genrePosters.ts).
-  const genreIds = genres.map((genre) => genre.Id!).filter(Boolean);
+  const genreIds = (genres ?? []).map((genre) => genre.Id!).filter(Boolean);
   const { data: genrePosters } = useQuery({
-    queryKey: ["search", "genre-posters", user?.Id, genreIds.join(",")],
+    queryKey: ["search-genre-posters", user?.Id, genreIds.join(",")],
     queryFn: async ({ signal }) => {
       const candidates = await Promise.all(
         genreIds.map(async (genreId) => ({
@@ -135,6 +137,7 @@ export const SearchLanding: React.FC<{
           seeAllLabel={t("search.clear")}
           onPressSeeAll={onClearRecent}
           items={orderedRecent}
+          loading={recentPending && orderedRecent.length === 0}
           kind='portrait'
           useEpisodePoster
           onPressItem={onOpenItem}
@@ -142,7 +145,9 @@ export const SearchLanding: React.FC<{
           className='mb-4'
         />
       )}
-      {genres.length > 0 && (
+      {/* Placeholder tiles hold the grid's place until the genres come;
+          a server with none (or a failed request) shows no section. */}
+      {(genres === undefined ? !genresFailed : genres.length > 0) && (
         <View>
           <SectionHeader title={t("search.browse_genres")} />
           <View
@@ -153,15 +158,20 @@ export const SearchLanding: React.FC<{
               paddingHorizontal: SIDE_PADDING,
             }}
           >
-            {genres.map((genre) => (
-              <GenreTile
-                key={genre.Id}
-                genre={genre}
-                posters={genrePosters?.get(genre.Id!) ?? []}
-                width={tileWidth}
-                onPress={openGenre}
-              />
-            ))}
+            {genres
+              ? genres.map((genre) => (
+                  <GenreTile
+                    key={genre.Id}
+                    genre={genre}
+                    posters={genrePosters?.[genre.Id!]}
+                    width={tileWidth}
+                    onPress={openGenre}
+                  />
+                ))
+              : Array.from(
+                  { length: Math.min(SEARCH_GENRE_LIMIT, columns * 2) },
+                  (_, i) => <GenreTile key={i} width={tileWidth} />,
+                )}
           </View>
         </View>
       )}

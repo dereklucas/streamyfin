@@ -12,9 +12,10 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 export const pickGenrePosters = (
   candidates: { genreId: string; items: BaseItemDto[] }[],
   count: number,
-): Map<string, BaseItemDto[]> => {
+): Record<string, BaseItemDto[]> => {
   const used = new Set<string>();
-  const picked = new Map<string, BaseItemDto[]>(
+  // A plain object, not a Map: the query cache on disk writes JSON.
+  const picked: Record<string, BaseItemDto[]> = Object.fromEntries(
     candidates.map(({ genreId }) => [genreId, []]),
   );
   const next = candidates.map(() => 0);
@@ -25,15 +26,15 @@ export const pickGenrePosters = (
         const item = items[next[index]++];
         if (!item.Id || used.has(item.Id)) continue;
         used.add(item.Id);
-        picked.get(genreId)?.push(item);
+        picked[genreId].push(item);
         return;
       }
     });
   }
 
   for (const { genreId, items } of candidates) {
-    if (picked.get(genreId)?.length === 0 && items[0]) {
-      picked.set(genreId, [items[0]]);
+    if (picked[genreId].length === 0 && items[0]) {
+      picked[genreId] = [items[0]];
     }
   }
   return picked;

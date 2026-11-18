@@ -41,8 +41,11 @@ jest.mock("@/components/cards/CardRow", () => ({
   },
 }));
 
-const makeServer = () => {
+const makeServer = ({ genresPending = false } = {}) => {
   const api = makeApi();
+  if (genresPending) {
+    api.mock.onGet(/\/Genres/).reply(() => new Promise(() => {}));
+  }
   api.mock.onGet(/\/Genres/).reply(200, {
     Items: [
       { Id: "comedy", Name: "Comedy", Type: "Genre", MovieCount: 9 },
@@ -71,9 +74,9 @@ const makeServer = () => {
   return api;
 };
 
-const setup = async (itemIds: string[]) => {
+const setup = async (itemIds: string[], server = makeServer()) => {
   const store = createStore();
-  store.set(apiAtom, makeServer() as never);
+  store.set(apiAtom, server as never);
   store.set(userAtom, { Id: "user-1", ServerId: "server-1" } as never);
   const onClear = jest.fn();
   const onOpenItem = jest.fn();
@@ -117,6 +120,16 @@ describe("SearchLanding", () => {
     fireEvent.press(await screen.findByLabelText("search.clear"));
 
     expect(onClear).toHaveBeenCalled();
+  });
+
+  // The genre request can take seconds: the page was blank meanwhile.
+  test("holds the genres' place while they load", async () => {
+    await setup([], makeServer({ genresPending: true }));
+
+    expect(await screen.findByText("search.browse_genres")).toBeTruthy();
+    expect(
+      screen.getAllByTestId("genre-tile-placeholder").length,
+    ).toBeGreaterThan(0);
   });
 
   test("lists the biggest genres to browse, and opens one", async () => {

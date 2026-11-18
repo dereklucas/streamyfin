@@ -99,7 +99,9 @@ export default function SearchPage() {
     try {
       await queryClient.invalidateQueries({
         predicate: (query) =>
-          query.queryKey[0] === "search" || isSeerrQuery(query.queryKey),
+          // search-genres and search-genre-posters too: the landing page.
+          String(query.queryKey[0]).startsWith("search") ||
+          isSeerrQuery(query.queryKey),
       });
     } finally {
       setRefreshing(false);

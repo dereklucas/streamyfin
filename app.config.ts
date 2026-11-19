@@ -44,6 +44,14 @@ const buildMeta = {
     process.env.EXPO_PUBLIC_GIT_RUN_NUMBER ||
     null,
   builtAt: new Date().toISOString(),
+  // Fork: what changed since the build this one (or this update) is made on,
+  // one commit per line, for the Developer screen's "What to test"
+  // (utils/devBuildNotes.ts). Parsed here, not imported: a file this config
+  // imports becomes part of the native fingerprint.
+  notes: (process.env.BUILD_NOTES ?? "")
+    .split("\n")
+    .map((line: string) => line.trim())
+    .filter(Boolean),
 };
 
 export default ({ config }: ConfigContext): ExpoConfig => {

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
+import Constants from "expo-constants";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Updates from "expo-updates";
@@ -12,6 +13,7 @@ import { Text } from "@/components/common/Text";
 import { ListGroup } from "@/components/list/ListGroup";
 import { ListItem } from "@/components/list/ListItem";
 import { DIAGNOSTICS_UPDATE_LOG_MAX_AGE_MS } from "@/constants/DevUpdates";
+import { readBuildNotes } from "@/utils/devBuildNotes";
 import { buildDiagnosticsReport } from "@/utils/devDiagnostics";
 import {
   checkForUpdateNow,
@@ -118,6 +120,7 @@ export const DeveloperScreen: React.FC = () => {
       });
     });
 
+  const notes = readBuildNotes(Constants.expoConfig?.extra);
   const bundle = Updates.isEmbeddedLaunch
     ? t("developer.embedded")
     : t("developer.update", { id: Updates.updateId?.slice(0, 8) ?? "?" });
@@ -170,6 +173,16 @@ export const DeveloperScreen: React.FC = () => {
             />
           ) : null}
         </ListGroup>
+
+        {/* What changed since the build this one is made on: the update's own
+            list when an update runs, else the build's. */}
+        {notes.length > 0 ? (
+          <ListGroup title={t("developer.what_to_test")}>
+            {notes.map((note, index) => (
+              <ListItem key={`${index}-${note}`} title={note} />
+            ))}
+          </ListGroup>
+        ) : null}
 
         <ListGroup>
           <ListItem

@@ -20,8 +20,7 @@
 #   like any other; follow the branch from More → Developer for its updates.
 #
 # Every build and update carries the commits since the build it is made on
-# (scripts/fork/build-notes.sh): the Developer screen's "What to test", and
-# for a build TestFlight's "What to Test", with the branch and commit.
+# (scripts/fork/build-notes.sh): the Developer screen's "What to test".
 #
 # A shipped build is recorded as the tag `ios-build/<fingerprint>` (local
 # builds do not show up in EAS's build list). Builds made by EAS before the

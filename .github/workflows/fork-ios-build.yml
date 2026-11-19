@@ -33,20 +33,14 @@ jobs:
         with:
           fetch-depth: 0 # tags and history, for the notes
 
-      # What changed since the last shipped build: baked into the app for the
-      # Developer screen, and TestFlight's "What to Test", with the branch.
+      # What changed since the last shipped build, baked into the app for the
+      # Developer screen. (TestFlight's "What to Test" cannot be set: eas
+      # submit's changelog is for EAS Enterprise plans only.)
       - name: Notes
         run: |
           notes=$(bash scripts/fork/build-notes.sh)
           echo "$notes"
           { echo "BUILD_NOTES<<FORK_NOTES_END"; echo "$notes"; echo "FORK_NOTES_END"; } >> "$GITHUB_ENV"
-          what="Branch: $GITHUB_REF_NAME (${GITHUB_SHA:0:7})"
-          if [ -n "$notes" ]; then
-            what="$what"$'\n\n'"Changes since the last build:"$'\n'"$(echo "$notes" | sed 's/^/• /')"
-          fi
-          # TestFlight takes at most 4000 characters.
-          what="${what:0:3900}"
-          { echo "WHAT_TO_TEST<<FORK_NOTES_END"; echo "$what"; echo "FORK_NOTES_END"; } >> "$GITHUB_ENV"
 
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
@@ -88,7 +82,7 @@ jobs:
         run: |
           bun x "$EAS_CLI" submit --platform ios --profile production \
             --path "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/app.ipa" \
-            --what-to-test "$WHAT_TO_TEST" --non-interactive --wait
+            --non-interactive --wait
 
       - name: Record the shipped build
         env:

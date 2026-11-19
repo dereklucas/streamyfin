@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fork only (.github/workflows/fork-ios.yml): the commits since the build this
 # one is made on, one subject per line, newest first, for BUILD_NOTES (the
-# Developer screen's "What to test") and TestFlight's "What to Test".
+# Developer screen's "What to test").
 #
 # Usage: build-notes.sh [base]
 #   base: the build to compare with, e.g. ios-build/<fingerprint>. Without it,

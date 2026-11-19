@@ -93,10 +93,13 @@ Native code in this app: the video player controls
 
 Every build and update carries the commits since the build it is made on
 (`scripts/fork/build-notes.sh`, newest first, without the fork's own
-plumbing). TestFlight shows them as the build's "What to Test", under the
-branch and commit it was built from. In the app, More → Developer lists
-them under **What to test**: an update's own list while one runs, the
-build's otherwise.
+plumbing). In the app, More → Developer lists them under **What to test**:
+an update's own list while one runs, the build's otherwise, with the commit
+and branch it was made from above.
+
+TestFlight's own "What to Test" stays empty: `eas submit` sets it only on
+EAS's Enterprise plan. Setting it would take an App Store Connect API key
+as a repository secret, for the workflow to call App Store Connect itself.
 
 ### Developer screen and branch previews
 

@@ -1604,7 +1604,8 @@
     "no_channel": "None (updates can't reach this build)",
     "emergency_launch": "An update failed to launch; running the built-in bundle",
     "share_diagnostics": "Share diagnostics",
-    "preparing": "Preparing…"
+    "preparing": "Preparing…",
+    "what_to_test": "What to test"
   },
   "home_screen_actions": {
     "minutes_left": "{{count}} min left",

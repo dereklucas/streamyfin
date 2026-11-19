@@ -76,10 +76,30 @@ yet (what a Claude session uses, as it cannot start a run by hand). Without a se
 `eas build -p ios --profile production --auto-submit` builds on EAS (its
 own monthly build quota).
 
+The build runs on macos-26 (`.github/workflows/fork-ios-build.yml`): its
+Xcode is the only one that compiles `expo-modules-jsi`, macos-15's 26.3
+rejects it. Its runners are scarce, and a job no runner takes within about
+15 minutes shows as cancelled with no log (GitHub's "job was not acquired").
+The run then tries again, up to twice more; if all three attempts miss,
+nothing in the change is wrong: re-run the failed jobs from Actions, or
+push again.
+
 Native code in this app: the video player controls
 (`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel
 (`modules/hero-carousel`), downloads and the Live Activity. Everything in
 `app/` and `components/` is JS.
+
+### What to test
+
+Every build and update carries the commits since the build it is made on
+(`scripts/fork/build-notes.sh`, newest first, without the fork's own
+plumbing). In the app, More → Developer lists them under **What to test**:
+an update's own list while one runs, the build's otherwise, with the commit
+and branch it was made from above.
+
+TestFlight's own "What to Test" stays empty: `eas submit` sets it only on
+EAS's Enterprise plan. Setting it would take an App Store Connect API key
+as a repository secret, for the workflow to call App Store Connect itself.
 
 ### Developer screen and branch previews
 

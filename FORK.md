@@ -76,11 +76,13 @@ yet (what a Claude session uses, as it cannot start a run by hand). Without a se
 `eas build -p ios --profile production --auto-submit` builds on EAS (its
 own monthly build quota).
 
-If the macOS job sits queued for about 15 minutes and then shows as
-cancelled with no log, no runner picked it up (GitHub's "job was not
-acquired" failure: too few runners of that kind, which is why the build
-runs on macos-15 rather than macos-26). Nothing in the change is wrong:
-re-run the failed job from Actions, or push again.
+The build runs on macos-26 (`.github/workflows/fork-ios-build.yml`): its
+Xcode is the only one that compiles `expo-modules-jsi`, macos-15's 26.3
+rejects it. Its runners are scarce, and a job no runner takes within about
+15 minutes shows as cancelled with no log (GitHub's "job was not acquired").
+The run then tries again, up to twice more; if all three attempts miss,
+nothing in the change is wrong: re-run the failed jobs from Actions, or
+push again.
 
 Native code in this app: the video player controls
 (`modules/mpv-player/ios/NativePlayer/Views`), the home hero carousel

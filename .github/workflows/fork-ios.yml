@@ -19,6 +19,9 @@
 #   for testing native work before it is merged. The build goes to TestFlight
 #   like any other; follow the branch from More → Developer for its updates.
 #
+# Every build and update carries the commits since the build it is made on
+# (scripts/fork/build-notes.sh): the Developer screen's "What to test".
+#
 # A shipped build is recorded as the tag `ios-build/<fingerprint>` (local
 # builds do not show up in EAS's build list). Builds made by EAS before the
 # move are found through EAS as well.
@@ -113,6 +116,18 @@ jobs:
       FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.fingerprint }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # tags and history, for the notes
+
+      # What changed since the build this update runs on, baked into the
+      # update (app.config.ts → the Developer screen's "What to test").
+      - name: Notes
+        env:
+          HASH: ${{ needs.decide.outputs.fingerprint }}
+        run: |
+          notes=$(bash scripts/fork/build-notes.sh "ios-build/$HASH")
+          echo "$notes"
+          { echo "BUILD_NOTES<<FORK_NOTES_END"; echo "$notes"; echo "FORK_NOTES_END"; } >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -143,62 +158,32 @@ jobs:
             --environment production --message "$(echo "$MESSAGE" | head -1)" \
             --non-interactive
 
+  # On macos-26, whose runners are scarce: an attempt no runner takes within
+  # ~15 min is cancelled unstarted (the run itself is not), and the next one
+  # tries again. A run cancelled by a newer push stops here (cancelled()).
   build:
-    name: Build iOS and upload to TestFlight
+    name: Build
     needs: decide
     if: (github.ref_name == 'development' || startsWith(github.ref_name, 'build/') || github.event_name == 'workflow_dispatch') && (needs.decide.outputs.shipped != 'true' || inputs.full_build)
-    runs-on: macos-26
-    timeout-minutes: 120
-    env:
-      FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.fingerprint }}
-      EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/build-output
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    uses: ./.github/workflows/fork-ios-build.yml
+    with:
+      fingerprint: ${{ needs.decide.outputs.fingerprint }}
+    secrets: inherit
 
-      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-        with:
-          xcode-version: latest-stable
+  build-retry:
+    name: Build (retry)
+    needs: [decide, build]
+    if: ${{ !cancelled() && needs.build.result == 'cancelled' }}
+    uses: ./.github/workflows/fork-ios-build.yml
+    with:
+      fingerprint: ${{ needs.decide.outputs.fingerprint }}
+    secrets: inherit
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: "1.4.4"
-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
-
-      - name: Tools
-        run: |
-          xcodebuild -version
-          pod --version || sudo gem install cocoapods
-          fastlane --version || brew install fastlane
-
-      # The production profile's custom steps (.eas/build/ios-production.yml)
-      # run here as they do on EAS; the runtime version comes from the env.
-      - name: Build
-        run: |
-          mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
-          bun x "$EAS_CLI" build --platform ios --profile production --local \
-            --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/app.ipa"
-
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: streamyfin-ios-${{ needs.decide.outputs.fingerprint }}
-          path: build-output/app.ipa
-          retention-days: 14
-
-      - name: Upload to TestFlight
-        run: |
-          bun x "$EAS_CLI" submit --platform ios --profile production \
-            --path "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/app.ipa" --non-interactive --wait
-
-      - name: Record the shipped build
-        env:
-          HASH: ${{ needs.decide.outputs.fingerprint }}
-        run: |
-          git tag -f "ios-build/$HASH" "$GITHUB_SHA"
-          git push -f origin "refs/tags/ios-build/$HASH"
+  build-retry-2:
+    name: Build (second retry)
+    needs: [decide, build-retry]
+    if: ${{ !cancelled() && needs.build-retry.result == 'cancelled' }}
+    uses: ./.github/workflows/fork-ios-build.yml
+    with:
+      fingerprint: ${{ needs.decide.outputs.fingerprint }}
+    secrets: inherit

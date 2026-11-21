@@ -74,16 +74,16 @@ extension ItemContextMenuView: UIContextMenuInteractionDelegate {
     }
   }
 
-  // A tap on what is lifted opens the item, as in Photos and Music.
+  // A tap on what is lifted opens the item, as in Photos and Music. Told at
+  // once, not in the animator's completion: there the navigation waited for
+  // the poster to settle back into place, a noticeable pause.
   func contextMenuInteraction(
     _ interaction: UIContextMenuInteraction,
     willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration,
     animator: UIContextMenuInteractionCommitAnimating
   ) {
     animator.preferredCommitStyle = .dismiss
-    animator.addCompletion { [weak self] in
-      self?.onPreviewPress()
-    }
+    onPreviewPress()
   }
 
   // MARK: Menu

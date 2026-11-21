@@ -61,6 +61,7 @@ export const TouchableItemRouter: React.FC<PropsWithChildren<Props>> = ({
       <NativeContextMenu
         actions={nativeMenu ? menuActions : []}
         onAction={handleMenuAction}
+        onPreviewPress={handlePress}
       >
         <TouchableOpacity
           {...longPressFor(

@@ -98,6 +98,7 @@ const CardComponent: React.FC<CardProps> = ({
     <NativeContextMenu
       actions={menuActions ?? []}
       onAction={handleMenuAction}
+      onPreviewPress={handlePress}
       preview={
         hasMenu ? <CardMenuPreview card={card} kind={kind} /> : undefined
       }

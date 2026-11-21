@@ -81,6 +81,11 @@ jest.mock("@/utils/serverUrl/probes/jellyfin", () =>
   jest.requireActual("@/test-utils/stubModules").jellyfinProbeModule(),
 );
 jest.mock(
+  "@/modules/item-context-menu",
+  () =>
+    jest.requireActual("@/test-utils/itemContextMenu").itemContextMenuModule,
+);
+jest.mock(
   "@/modules/wifi-ssid",
   () => jest.requireActual("@/test-utils/stubModules").wifiSsidModule,
 );

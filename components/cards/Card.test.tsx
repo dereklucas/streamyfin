@@ -35,6 +35,28 @@ describe("Card with a native context menu", () => {
     expect(onPress).toHaveBeenCalledWith("m1");
   });
 
+  // After a long press the poster is lifted above the menu; a tap on it
+  // opens the item, as if there had been no long press.
+  test("opens the item on a tap of the lifted poster", async () => {
+    Platform.OS = "ios";
+    const onPress = jest.fn();
+    await render(
+      <Card
+        card={CARD}
+        kind='portrait'
+        onPress={onPress}
+        menuActions={MENU}
+        onMenuAction={() => {}}
+      />,
+    );
+
+    await fireEvent.press(
+      screen.getByTestId("native-context-menu-preview-tap"),
+    );
+
+    expect(onPress).toHaveBeenCalledWith("m1");
+  });
+
   test("previews the poster larger, with its title, above the menu", async () => {
     Platform.OS = "ios";
     await render(
@@ -47,9 +69,11 @@ describe("Card with a native context menu", () => {
       />,
     );
 
-    // The card's own title, and the preview's.
-    expect(screen.getAllByText("Movie One")).toHaveLength(2);
-    expect(screen.getAllByText("2024")).toHaveLength(2);
+    // The card's own title, and the preview's (drawn off screen, hidden from
+    // VoiceOver, so the query has to ask for hidden elements).
+    const hidden = { includeHiddenElements: true };
+    expect(screen.getAllByText("Movie One", hidden)).toHaveLength(2);
+    expect(screen.getAllByText("2024", hidden)).toHaveLength(2);
   });
 });
 

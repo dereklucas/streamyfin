@@ -5,6 +5,7 @@ import {
   within,
 } from "@testing-library/react-native";
 import { Platform, Text } from "react-native";
+import { itemContextMenuProps } from "@/test-utils/itemContextMenu";
 import { NativeContextMenu } from "./NativeContextMenu";
 
 const ACTIONS = [
@@ -33,7 +34,7 @@ describe("NativeContextMenu", () => {
     );
 
     expect(screen.getByText("Poster")).toBeTruthy();
-    expect(screen.getByTestId("swiftui-context-menu")).toBeTruthy();
+    expect(screen.getByTestId("native-context-menu")).toBeTruthy();
     await fireEvent.press(screen.getByText("Delete"));
     expect(onAction).toHaveBeenCalledWith("delete");
   });
@@ -47,7 +48,7 @@ describe("NativeContextMenu", () => {
     );
 
     expect(screen.getByText("Poster")).toBeTruthy();
-    expect(screen.queryByTestId("swiftui-context-menu")).toBeNull();
+    expect(screen.queryByTestId("native-context-menu")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
@@ -59,7 +60,7 @@ describe("NativeContextMenu", () => {
       </NativeContextMenu>,
     );
 
-    expect(screen.queryByTestId("swiftui-context-menu")).toBeNull();
+    expect(screen.queryByTestId("native-context-menu")).toBeNull();
   });
 
   test("puts quick actions in the icon row with their short labels, and destructive ones last", async () => {
@@ -81,12 +82,7 @@ describe("NativeContextMenu", () => {
             systemImage: "heart",
             group: "quick",
           },
-          {
-            key: "shuffle",
-            label: "Shuffle",
-            systemImage: "shuffle",
-            group: "primary",
-          },
+          { key: "shuffle", label: "Shuffle", systemImage: "shuffle" },
         ]}
         onAction={() => {}}
       >
@@ -94,18 +90,37 @@ describe("NativeContextMenu", () => {
       </NativeContextMenu>,
     );
 
-    const row = screen.getByTestId("swiftui-control-group");
+    const row = screen.getByTestId("native-context-menu-section-quick");
     expect(within(row).getByText("Favorite")).toBeTruthy();
     expect(screen.queryByText("Add to favorites")).toBeNull();
-    const rows = screen
-      .getAllByRole("menuitem")
-      .map((row) => row.props.children);
-    expect(rows).toEqual(["Favorite", "Shuffle", "Delete download"]);
-    expect(screen.getByTestId("swiftui-divider")).toBeTruthy();
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.props.children),
+    ).toEqual(["Favorite", "Shuffle", "Delete download"]);
   });
 
-  test("shows the preview it is given", async () => {
+  // The menu is the system's own, attached to the content where it is laid
+  // out. Before, the content was moved into a SwiftUI host that sized to it:
+  // a list row, whose height follows its text, ran off the screen and, in a
+  // scrolling list, collapsed onto the rows around it.
+  test("keeps the content in its own layout, as the view's first child", async () => {
     Platform.OS = "ios";
+    itemContextMenuProps.mockClear();
+    await render(
+      <NativeContextMenu actions={ACTIONS} onAction={() => {}}>
+        <Text>Row</Text>
+      </NativeContextMenu>,
+    );
+
+    const props = itemContextMenuProps.mock.calls.at(-1)?.[0];
+    expect(props.hasPreview).toBe(false);
+    expect(props.style).toBeUndefined();
+  });
+
+  // The preview is drawn off screen, and the native view shows a picture of
+  // it above the menu: moving it would put it back in a SwiftUI host.
+  test("draws the preview it is given off screen, hidden from VoiceOver", async () => {
+    Platform.OS = "ios";
+    itemContextMenuProps.mockClear();
     await render(
       <NativeContextMenu
         actions={ACTIONS}
@@ -116,32 +131,38 @@ describe("NativeContextMenu", () => {
       </NativeContextMenu>,
     );
 
-    expect(screen.getByText("Big poster")).toBeTruthy();
+    expect(itemContextMenuProps.mock.calls.at(-1)?.[0].hasPreview).toBe(true);
+    // Hidden from VoiceOver, so the query has to ask for hidden elements.
+    const preview = screen.getByTestId("context-menu-preview", {
+      includeHiddenElements: true,
+    });
+    expect(preview.props.importantForAccessibility).toBe("no-hide-descendants");
+    expect(preview.props.accessibilityElementsHidden).toBe(true);
+    expect(preview.props.collapsable).toBe(false);
+    expect(preview).toHaveStyle({ position: "absolute" });
+    expect(
+      within(preview).getByText("Big poster", { includeHiddenElements: true }),
+    ).toBeTruthy();
   });
 
-  test("puts navigation in its own section between the list and the destructive end", async () => {
+  // A tap on the lifted poster opens it, as in Photos and Music.
+  test("tells a tap on the lifted preview", async () => {
     Platform.OS = "ios";
+    const onPreviewPress = jest.fn();
     await render(
       <NativeContextMenu
-        actions={[
-          { key: "play", label: "Play", group: "primary" },
-          { key: "goToSeries", label: "Go to show", group: "nav" },
-          {
-            key: "delete",
-            label: "Delete download",
-            destructive: true,
-            group: "destructive",
-          },
-        ]}
+        actions={ACTIONS}
         onAction={() => {}}
+        onPreviewPress={onPreviewPress}
       >
         <Text>Poster</Text>
       </NativeContextMenu>,
     );
 
-    expect(
-      screen.getAllByRole("menuitem").map((row) => row.props.children),
-    ).toEqual(["Play", "Go to show", "Delete download"]);
-    expect(screen.getAllByTestId("swiftui-divider")).toHaveLength(2);
+    await fireEvent.press(
+      screen.getByTestId("native-context-menu-preview-tap"),
+    );
+
+    expect(onPreviewPress).toHaveBeenCalledTimes(1);
   });
 });

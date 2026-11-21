@@ -184,7 +184,8 @@ export const SeasonPicker: React.FC<Props> = ({
     if (episodeRow !== "loading") onSettled?.();
   }, [episodeRow, onSettled]);
 
-  // Used for height calculation
+  // The last season's episode count, to hold the page's height while the
+  // next season's episodes load.
   const [nrOfEpisodes, setNrOfEpisodes] = useState(0);
   useEffect(() => {
     if (episodes && episodes.length > 0) {
@@ -260,11 +261,7 @@ export const SeasonPicker: React.FC<Props> = ({
   );
 
   return (
-    <View
-      style={{
-        minHeight: 144 * nrOfEpisodes,
-      }}
-    >
+    <View>
       <View className='flex flex-row justify-start items-center px-4'>
         <SeasonDropdown
           item={item}

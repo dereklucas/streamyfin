@@ -5,6 +5,7 @@ import {
   within,
 } from "@testing-library/react-native";
 import { Platform, Text } from "react-native";
+import { swiftUiHostProps, swiftUiRNHostViewProps } from "@/test-utils/swiftUi";
 import { NativeContextMenu } from "./NativeContextMenu";
 
 const ACTIONS = [
@@ -36,6 +37,41 @@ describe("NativeContextMenu", () => {
     expect(screen.getByTestId("swiftui-context-menu")).toBeTruthy();
     await fireEvent.press(screen.getByText("Delete"));
     expect(onAction).toHaveBeenCalledWith("delete");
+  });
+
+  // A poster has its own size, so the menu takes it. A list row's width comes
+  // from the screen: sized to its content instead, a long title stays on one
+  // line and pushes whatever hangs off the row's end out of the screen.
+  test("sizes to a poster's own width and height", async () => {
+    Platform.OS = "ios";
+    swiftUiHostProps.mockClear();
+    swiftUiRNHostViewProps.mockClear();
+    await render(
+      <NativeContextMenu actions={ACTIONS} onAction={() => {}}>
+        <Text>Poster</Text>
+      </NativeContextMenu>,
+    );
+
+    expect(swiftUiHostProps.mock.calls[0][0].matchContents).toBe(true);
+    expect(swiftUiRNHostViewProps.mock.calls[0][0].matchContents).toBe(true);
+  });
+
+  test("takes its width from the layout when told to fill it", async () => {
+    Platform.OS = "ios";
+    swiftUiHostProps.mockClear();
+    swiftUiRNHostViewProps.mockClear();
+    await render(
+      <NativeContextMenu actions={ACTIONS} onAction={() => {}} fillWidth>
+        <Text>Row</Text>
+      </NativeContextMenu>,
+    );
+
+    expect(swiftUiHostProps.mock.calls[0][0].matchContents).toEqual({
+      vertical: true,
+    });
+    expect(swiftUiRNHostViewProps.mock.calls[0][0].matchContents).toEqual({
+      vertical: true,
+    });
   });
 
   test("renders only the content where there is no native menu", async () => {

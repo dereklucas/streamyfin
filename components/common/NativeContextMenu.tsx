@@ -7,8 +7,8 @@ import {
   RNHostView,
 } from "@expo/ui/swift-ui";
 import type React from "react";
-import { useEffect } from "react";
-import { Platform } from "react-native";
+import { useEffect, useState } from "react";
+import { Platform, View } from "react-native";
 import { writeInfoLog } from "@/utils/log";
 
 export interface NativeContextMenuAction {
@@ -36,11 +36,7 @@ type Props = {
    * album card. Mounted with the content, so keep it light.
    */
   preview?: React.ReactElement;
-  /**
-   * Take the width the layout gives (a list row), not the content's own (a
-   * poster). Sized to its content, a row keeps a long title on one line and
-   * pushes what hangs off its end out of the screen.
-   */
+  /** Take the width the layout gives (a list row), not the content's own (a poster). */
   fillWidth?: boolean;
 };
 
@@ -61,13 +57,13 @@ export const NativeContextMenu: React.FC<Props> = ({
   fillWidth = false,
 }) => {
   const native = hasNativeContextMenu() && actions.length > 0;
+  // The width a filling menu is given, once laid out.
+  const [width, setWidth] = useState<number | null>(null);
   useEffect(() => {
     if (native) logOnce("Native context menus in use", platformDetails());
   }, [native]);
 
   if (!native) return children;
-
-  const sizing = fillWidth ? { vertical: true } : true;
 
   const groupOf = (action: NativeContextMenuAction) =>
     action.group ?? (action.destructive ? "destructive" : "primary");
@@ -91,12 +87,10 @@ export const NativeContextMenu: React.FC<Props> = ({
     />
   );
 
-  return (
+  const menu = (content: React.ReactElement) => (
     // Both size to the content: the Host takes the poster's size in the React
-    // Native layout, and the RNHostView inside it the poster's own. Filling
-    // the width, only the height follows the content: the Host takes its
-    // width from the layout and hands it down, so the row's text wraps.
-    <Host matchContents={sizing}>
+    // Native layout, and the RNHostView inside it the poster's own.
+    <Host matchContents>
       <ContextMenu>
         <ContextMenu.Items>
           {quick.length > 0 ? (
@@ -118,7 +112,7 @@ export const NativeContextMenu: React.FC<Props> = ({
           {destructive.map((action) => button(action))}
         </ContextMenu.Items>
         <ContextMenu.Trigger>
-          <RNHostView matchContents={sizing}>{children}</RNHostView>
+          <RNHostView matchContents>{content}</RNHostView>
         </ContextMenu.Trigger>
         {preview ? (
           <ContextMenu.Preview>
@@ -127,6 +121,30 @@ export const NativeContextMenu: React.FC<Props> = ({
         ) : null}
       </ContextMenu>
     </Host>
+  );
+
+  if (!fillWidth) return menu(children);
+
+  // A list row takes the width the layout gives it, not its content's own:
+  // sized to its content, a long title stays on one line and pushes what
+  // hangs off the row's end out of the screen. Asking the Host for the width
+  // from the layout and the height from the content is another native sizing
+  // path, the likely cause of rows collapsing onto each other as the page
+  // scrolled (seen on a device with it). So the width is measured here and the content is given it, and the menu
+  // sizes to that content on both axes, as a poster does.
+  return (
+    <View
+      testID='context-menu-measure'
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+    >
+      {width === null
+        ? children
+        : menu(
+            <View testID='context-menu-content' style={{ width }}>
+              {children}
+            </View>,
+          )}
+    </View>
   );
 };
 

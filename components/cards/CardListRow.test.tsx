@@ -1,6 +1,5 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { Platform } from "react-native";
-import { swiftUiHostProps, swiftUiRNHostViewProps } from "@/test-utils/swiftUi";
 import type { CardData } from "./CardData";
 import { CardListRow } from "./CardListRow";
 
@@ -25,8 +24,6 @@ describe("CardListRow with a native context menu", () => {
   // row as wide as the title, and the download button went off the screen.
   test("spans the width it is given, so its title wraps", async () => {
     Platform.OS = "ios";
-    swiftUiHostProps.mockClear();
-    swiftUiRNHostViewProps.mockClear();
     await render(
       <CardListRow
         card={CARD}
@@ -36,11 +33,12 @@ describe("CardListRow with a native context menu", () => {
       />,
     );
 
-    expect(swiftUiHostProps.mock.calls[0][0].matchContents).toEqual({
-      vertical: true,
+    await fireEvent(screen.getByTestId("context-menu-measure"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 343, height: 90 } },
     });
-    expect(swiftUiRNHostViewProps.mock.calls[0][0].matchContents).toEqual({
-      vertical: true,
+
+    expect(screen.getByTestId("context-menu-content")).toHaveStyle({
+      width: 343,
     });
   });
 });

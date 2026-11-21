@@ -36,12 +36,6 @@ type Props = {
    * album card. Mounted with the content, so keep it light.
    */
   preview?: React.ReactElement;
-  /**
-   * Take the width the layout gives (a list row), not the content's own (a
-   * poster). Sized to its content, a row keeps a long title on one line and
-   * pushes what hangs off its end out of the screen.
-   */
-  fillWidth?: boolean;
 };
 
 /**
@@ -58,7 +52,6 @@ export const NativeContextMenu: React.FC<Props> = ({
   onAction,
   children,
   preview,
-  fillWidth = false,
 }) => {
   const native = hasNativeContextMenu() && actions.length > 0;
   useEffect(() => {
@@ -66,8 +59,6 @@ export const NativeContextMenu: React.FC<Props> = ({
   }, [native]);
 
   if (!native) return children;
-
-  const sizing = fillWidth ? { vertical: true } : true;
 
   const groupOf = (action: NativeContextMenuAction) =>
     action.group ?? (action.destructive ? "destructive" : "primary");
@@ -93,10 +84,8 @@ export const NativeContextMenu: React.FC<Props> = ({
 
   return (
     // Both size to the content: the Host takes the poster's size in the React
-    // Native layout, and the RNHostView inside it the poster's own. Filling
-    // the width, only the height follows the content: the Host takes its
-    // width from the layout and hands it down, so the row's text wraps.
-    <Host matchContents={sizing}>
+    // Native layout, and the RNHostView inside it the poster's own.
+    <Host matchContents>
       <ContextMenu>
         <ContextMenu.Items>
           {quick.length > 0 ? (
@@ -118,7 +107,7 @@ export const NativeContextMenu: React.FC<Props> = ({
           {destructive.map((action) => button(action))}
         </ContextMenu.Items>
         <ContextMenu.Trigger>
-          <RNHostView matchContents={sizing}>{children}</RNHostView>
+          <RNHostView matchContents>{children}</RNHostView>
         </ContextMenu.Trigger>
         {preview ? (
           <ContextMenu.Preview>

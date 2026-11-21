@@ -4,7 +4,6 @@ import { View as Box, Text as Row, type ViewProps } from "react-native";
 
 export const swiftUiHostProps = jest.fn();
 export const swiftUiPickerProps = jest.fn();
-export const swiftUiRNHostViewProps = jest.fn();
 
 type Tagged = React.ReactElement<{
   modifiers: { tag: string }[];
@@ -18,8 +17,8 @@ const nothing = () => null;
 
 /**
  * `@expo/ui/swift-ui` for every unit spec, wired in `unitSetup.ts`. The SwiftUI
- * views are native. Each stands in as what it carries: the Host and the
- * RNHostView record their props, a Menu is its label and its items and keeps the modifiers it was
+ * views are native. Each stands in as what it carries: the Host records its
+ * props, a Menu is its label and its items and keeps the modifiers it was
  * given, a Button is a row, a stack is its children. Views that only draw
  * native pixels (an image, a spinner, a spacer, a text) draw nothing. The
  * modifiers stay real: `@expo/ui/swift-ui/modifiers` is plain JavaScript and
@@ -100,10 +99,9 @@ export const swiftUiModule = {
     <Box testID='swiftui-control-group'>{children}</Box>
   ),
   Divider: () => <Box testID='swiftui-divider' />,
-  RNHostView: (props: { children: React.ReactNode }) => {
-    swiftUiRNHostViewProps(props);
-    return <Box>{props.children}</Box>;
-  },
+  RNHostView: ({ children }: { children: React.ReactNode }) => (
+    <Box>{children}</Box>
+  ),
   HStack: Stack,
   Spacer: nothing,
   Image: nothing,

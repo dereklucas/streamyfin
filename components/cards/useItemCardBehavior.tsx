@@ -38,13 +38,6 @@ type Options = {
    * on iPhone and iPad, the action sheet elsewhere. Default: off.
    */
   enableActionSheet?: boolean;
-  /**
-   * With `enableActionSheet`, whether iPhone and iPad get the native context
-   * menu (default) or keep the sheet. A list whose rows' height follows their
-   * text keeps the sheet: the menu's SwiftUI host cannot follow that height,
-   * and the season's rows collapsed onto each other as the page scrolled.
-   */
-  nativeMenu?: boolean;
 };
 
 /**
@@ -65,7 +58,6 @@ export function useItemCardBehavior({
   onLongPressItem,
   onLongPressId,
   enableActionSheet = false,
-  nativeMenu: allowNativeMenu = true,
 }: Options) {
   const api = useAtomValue(apiAtom);
   const { menuActionsFor, handleMenuAction, runner } = useItemMenus(items);
@@ -165,7 +157,6 @@ export function useItemCardBehavior({
   // screen handles the long press itself.
   const nativeMenu =
     hasNativeContextMenu() &&
-    allowNativeMenu &&
     enableActionSheet &&
     Boolean(items) &&
     !onLongPressItem &&

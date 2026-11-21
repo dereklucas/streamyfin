@@ -49,20 +49,13 @@ jest.mock("@/providers/OfflineModeProvider", () => ({
 }));
 // The rows and their menus are not what is under test; an episode shows up
 // as its name.
-const mockCardOptions: { nativeMenu?: boolean }[] = [];
 jest.mock("../cards/useItemCardBehavior", () => ({
-  useItemCardBehavior: (options: {
-    cards: unknown[];
-    nativeMenu?: boolean;
-  }) => {
-    mockCardOptions.push(options);
-    return {
-      cards: options.cards,
-      handlePress: () => {},
-      handleLongPress: undefined,
-      actionSheet: null,
-    };
-  },
+  useItemCardBehavior: ({ cards }: { cards: unknown[] }) => ({
+    cards,
+    handlePress: () => {},
+    handleLongPress: undefined,
+    actionSheet: null,
+  }),
 }));
 jest.mock("../cards/CardListRow", () => ({
   CardListRow: ({ card }: { card: { title?: string } }) => {
@@ -169,17 +162,6 @@ const renderPicker = async (store: ReturnType<typeof createStore>) => {
 };
 
 describe("SeasonPicker offline", () => {
-  // An episode row's height follows its title and overview, which the native
-  // menu's SwiftUI host cannot follow: the rows collapsed onto each other as
-  // the page scrolled. The rows keep the long-press sheet instead.
-  test("gives the episode rows the long-press sheet, not a native menu", async () => {
-    mockCardOptions.length = 0;
-    await renderPicker(createStore());
-
-    expect(mockCardOptions.length).toBeGreaterThan(0);
-    expect(mockCardOptions.every((o) => o.nativeMenu === false)).toBe(true);
-  });
-
   // #2153: with one episode downloaded in season 1 and one in season 2,
   // deleting the season 1 episode left the page on season 1, which no longer
   // had anything to list, until the other season was picked by hand.

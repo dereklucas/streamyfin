@@ -184,8 +184,7 @@ export const SeasonPicker: React.FC<Props> = ({
     if (episodeRow !== "loading") onSettled?.();
   }, [episodeRow, onSettled]);
 
-  // The last season's episode count, to hold the page's height while the
-  // next season's episodes load.
+  // Used for height calculation
   const [nrOfEpisodes, setNrOfEpisodes] = useState(0);
   useEffect(() => {
     if (episodes && episodes.length > 0) {
@@ -212,17 +211,20 @@ export const SeasonPicker: React.FC<Props> = ({
     }));
   }, [episodes, api, episodeById]);
 
-  const { cards, handlePress, handleLongPress, actionSheet } =
-    useItemCardBehavior({
-      items: episodes ?? [],
-      cards: episodeCards,
-      kind: "rowWide",
-      // The rows this replaced were TouchableItemRouters, which carried it.
-      enableActionSheet: true,
-      // The sheet, on iPhone and iPad too: a row's height follows its title
-      // and overview, which the native menu's SwiftUI host cannot follow.
-      nativeMenu: false,
-    });
+  const {
+    cards,
+    handlePress,
+    handleLongPress,
+    menuActionsFor,
+    handleMenuAction,
+    actionSheet,
+  } = useItemCardBehavior({
+    items: episodes ?? [],
+    cards: episodeCards,
+    kind: "rowWide",
+    // The rows this replaced were TouchableItemRouters, which carried it.
+    enableActionSheet: true,
+  });
 
   // The header's Shuffle takes the whole show; this one, the open season.
   // Counted the way the queue is built: placeholders for missing episodes
@@ -258,7 +260,11 @@ export const SeasonPicker: React.FC<Props> = ({
   );
 
   return (
-    <View>
+    <View
+      style={{
+        minHeight: 144 * nrOfEpisodes,
+      }}
+    >
       <View className='flex flex-row justify-start items-center px-4'>
         <SeasonDropdown
           item={item}
@@ -320,6 +326,8 @@ export const SeasonPicker: React.FC<Props> = ({
                 onLongPress={
                   handleLongPress ? () => handleLongPress(card.id) : undefined
                 }
+                menuActions={menuActionsFor?.(card.id)}
+                onMenuAction={(key) => handleMenuAction(card.id, key)}
               />
             </View>
           ))

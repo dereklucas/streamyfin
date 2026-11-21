@@ -55,12 +55,11 @@ let longPress: ((id: string) => void) | undefined;
 let menuActionsFor: ((id: string) => { key: string }[] | undefined) | undefined;
 let menuAction: (id: string, key: string) => void = () => {};
 
-const Harness = ({ nativeMenu }: { nativeMenu?: boolean }) => {
+const Harness = () => {
   const behavior = useItemCardBehavior({
     items: [MOVIE],
     kind: "rowWide",
     enableActionSheet: true,
-    nativeMenu,
   });
   longPress = behavior.handleLongPress;
   menuActionsFor = behavior.menuActionsFor;
@@ -124,18 +123,6 @@ describe("useItemCardBehavior long press, iPhone and iPad", () => {
       "played",
       "favorite",
     ]);
-  });
-
-  // A list row's height follows its text, which the native menu's SwiftUI
-  // host cannot follow: in the season's list the rows collapsed onto each
-  // other as the page scrolled. Such a list keeps the sheet.
-  test("keeps the action sheet where the cards ask for it", async () => {
-    await render(<Harness nativeMenu={false} />);
-
-    expect(menuActionsFor).toBeUndefined();
-    expect(longPress).toBeDefined();
-    await act(async () => longPress?.(MOVIE.Id!));
-    expect(sheetsShown()).toHaveLength(1);
   });
 
   test("runs the chosen menu action for that item", async () => {

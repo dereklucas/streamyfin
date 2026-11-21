@@ -10,6 +10,7 @@ import {
 import { Text } from "@/components/common/Text";
 import { Colors } from "@/constants/Colors";
 import { CONTEXT_MENU_LONG_PRESS_GUARD_MS } from "@/constants/Values";
+import { writeInfoLog } from "@/utils/log";
 import { CardArtwork } from "./CardArtwork";
 import {
   CARD_LAYOUTS,
@@ -48,6 +49,8 @@ type CardProps = {
  * band at the bottom, and the progress bar under them but still on the card.
  * Everything it draws comes from `CardData` — see `buildItemCards`.
  */
+let loggedZoomLink = false;
+
 const CardComponent: React.FC<CardProps> = ({
   card,
   kind,
@@ -100,6 +103,12 @@ const CardComponent: React.FC<CardProps> = ({
       />
     </View>
   );
+
+  // TEMPORARY (feat/zoom-transition): that posters get their zoom link.
+  if (zoomHref && !loggedZoomLink) {
+    loggedZoomLink = true;
+    writeInfoLog("Zoom: poster has a zoom link", { href: zoomHref });
+  }
 
   // With a zoom link, the touchable is the Link's pressable and the artwork
   // block (with its frosted title, when over) is what zooms into the page.

@@ -1,5 +1,5 @@
 import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRoute } from "expo-router";
 import type React from "react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import { Text } from "@/components/common/Text";
 import { ItemContent } from "@/components/ItemContent";
 import { useItemQuery } from "@/hooks/useItemQuery";
 import { OfflineModeProvider } from "@/providers/OfflineModeProvider";
+import { writeInfoLog } from "@/utils/log";
 
 const ItemContentSkeletonTV = Platform.isTV
   ? require("@/components/ItemContentSkeleton.tv").ItemContentSkeletonTV
@@ -20,6 +21,20 @@ const ItemContentSkeletonTV = Platform.isTV
 
 const Page: React.FC = () => {
   const { id } = useLocalSearchParams() as { id: string };
+  // TEMPORARY (feat/zoom-transition): which zoom params reached the page.
+  const route = useRoute();
+  useEffect(() => {
+    const params = (route.params ?? {}) as Record<string, unknown>;
+    writeInfoLog("Zoom: item page params", {
+      key: route.key,
+      zoomParams: Object.fromEntries(
+        Object.entries(params).filter(([name]) =>
+          name.toLowerCase().includes("zoom"),
+        ),
+      ),
+      paramNames: Object.keys(params),
+    });
+  }, [route.key, route.params]);
   const { t } = useTranslation();
 
   const { offline } = useLocalSearchParams() as { offline?: string };

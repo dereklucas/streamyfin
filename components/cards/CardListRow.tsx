@@ -1,10 +1,5 @@
 import { TouchableOpacity, View } from "react-native";
-import {
-  NativeContextMenu,
-  type NativeContextMenuAction,
-} from "@/components/common/NativeContextMenu";
 import { Text } from "@/components/common/Text";
-import { longPressFor } from "./Card";
 import { CardArtwork } from "./CardArtwork";
 import {
   CARD_LAYOUTS,
@@ -12,17 +7,14 @@ import {
   type CardKind,
   type CardSlots,
 } from "./CardData";
-import { CardMenuPreview } from "./CardMenuPreview";
 
 type Props = {
   card: CardData;
   kind?: CardKind;
   slots?: CardSlots;
   onPress: () => void;
+  /** The item's actions: the action sheet, on every platform. */
   onLongPress?: () => void;
-  /** The native context menu's actions (iPhone and iPad), in place of a long press. */
-  menuActions?: NativeContextMenuAction[];
-  onMenuAction?: (key: string) => void;
 };
 
 /**
@@ -38,67 +30,59 @@ export const CardListRow: React.FC<Props> = ({
   slots,
   onPress,
   onLongPress,
-  menuActions,
-  onMenuAction,
 }) => {
   const layout = CARD_LAYOUTS[kind];
   const width = layout.cardWidth;
   const height = width / (card.aspectRatio ?? layout.aspectRatio);
 
   return (
-    <NativeContextMenu
-      actions={menuActions ?? []}
-      onAction={(key) => onMenuAction?.(key)}
-      preview={
-        menuActions?.length ? (
-          <CardMenuPreview card={card} kind={kind} />
-        ) : undefined
-      }
+    // Plain React Native, never inside the native context menu: the menu's
+    // SwiftUI host sizes to its content, and a row's height follows its text.
+    // Hosted, a long title ran the row off the screen and, in a scrolling
+    // list, the rows collapsed onto each other.
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={{ opacity: card.dimmed ? 0.5 : 1 }}
     >
-      <TouchableOpacity
-        onPress={onPress}
-        {...longPressFor(onLongPress, Boolean(menuActions?.length))}
-        style={{ opacity: card.dimmed ? 0.5 : 1 }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-          <CardArtwork
-            card={card}
-            width={width}
-            height={height}
-            cornerRadius={layout.cornerRadius}
-            edgeProgress
-            overlay={slots?.overlay?.(card)}
-          />
+      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        <CardArtwork
+          card={card}
+          width={width}
+          height={height}
+          cornerRadius={layout.cornerRadius}
+          edgeProgress
+          overlay={slots?.overlay?.(card)}
+        />
 
-          <View style={{ flex: 1, marginLeft: layout.spacing }}>
-            <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: "600" }}>
-              {card.title}
+        <View style={{ flex: 1, marginLeft: layout.spacing }}>
+          <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: "600" }}>
+            {card.title}
+          </Text>
+          {Boolean(card.subtitle) && (
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}
+            >
+              {card.subtitle}
             </Text>
-            {Boolean(card.subtitle) && (
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}
-              >
-                {card.subtitle}
-              </Text>
-            )}
-            {Boolean(card.detail) && (
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}
-              >
-                {card.detail}
-              </Text>
-            )}
-          </View>
-
-          {slots?.trailing && (
-            <View style={{ marginLeft: 8 }}>{slots.trailing(card)}</View>
+          )}
+          {Boolean(card.detail) && (
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}
+            >
+              {card.detail}
+            </Text>
           )}
         </View>
 
-        {slots?.footer?.(card)}
-      </TouchableOpacity>
-    </NativeContextMenu>
+        {slots?.trailing && (
+          <View style={{ marginLeft: 8 }}>{slots.trailing(card)}</View>
+        )}
+      </View>
+
+      {slots?.footer?.(card)}
+    </TouchableOpacity>
   );
 };

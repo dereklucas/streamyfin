@@ -56,11 +56,7 @@ describe("NativeContextMenu", () => {
     expect(swiftUiRNHostViewProps.mock.calls[0][0].matchContents).toBe(true);
   });
 
-  // Width from the layout and height from the content is a separate native
-  // sizing path, the likely cause of the season's rows collapsing onto each
-  // other as the page scrolled. Filling the width measures it instead, and sizes the
-  // content to it on both axes, as a poster is.
-  test("measures the width it is given and sizes the content to it", async () => {
+  test("takes its width from the layout when told to fill it", async () => {
     Platform.OS = "ios";
     swiftUiHostProps.mockClear();
     swiftUiRNHostViewProps.mockClear();
@@ -70,21 +66,11 @@ describe("NativeContextMenu", () => {
       </NativeContextMenu>,
     );
 
-    // Until the width is known, the content lays out on its own.
-    expect(screen.getByText("Row")).toBeTruthy();
-    expect(screen.queryByTestId("swiftui-context-menu")).toBeNull();
-
-    await fireEvent(screen.getByTestId("context-menu-measure"), "layout", {
-      nativeEvent: { layout: { x: 0, y: 0, width: 320, height: 100 } },
+    expect(swiftUiHostProps.mock.calls[0][0].matchContents).toEqual({
+      vertical: true,
     });
-
-    expect(screen.getByTestId("swiftui-context-menu")).toBeTruthy();
-    expect(swiftUiHostProps.mock.calls.at(-1)?.[0].matchContents).toBe(true);
-    expect(swiftUiRNHostViewProps.mock.calls.at(-1)?.[0].matchContents).toBe(
-      true,
-    );
-    expect(screen.getByTestId("context-menu-content")).toHaveStyle({
-      width: 320,
+    expect(swiftUiRNHostViewProps.mock.calls[0][0].matchContents).toEqual({
+      vertical: true,
     });
   });
 

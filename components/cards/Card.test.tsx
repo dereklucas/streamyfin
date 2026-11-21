@@ -5,6 +5,23 @@ import type { CardData } from "./CardData";
 
 // The artwork pulls in the image stack; what is under test is the press.
 jest.mock("./CardArtwork", () => ({ CardArtwork: () => null }));
+// The Link records what it was given; its navigation is expo-router's.
+const mockLinkProps: { href: unknown; asChild?: boolean }[] = [];
+jest.mock("expo-router", () => {
+  const { View } = jest.requireActual("react-native");
+  const Link = (props: {
+    href: unknown;
+    asChild?: boolean;
+    children: React.ReactNode;
+  }) => {
+    mockLinkProps.push(props);
+    return props.children;
+  };
+  Link.AppleZoom = ({ children }: { children: React.ReactNode }) => (
+    <View testID='apple-zoom-source'>{children}</View>
+  );
+  return { Link };
+});
 
 const CARD: CardData = { id: "m1", title: "Movie One", subtitle: "2024" };
 const MENU = [
@@ -101,5 +118,27 @@ describe("longPressFor", () => {
       onLongPress: undefined,
       delayLongPress: undefined,
     });
+  });
+});
+
+// iOS 18's zoom transition: the poster's artwork zooms into the page it opens.
+describe("Card with a zoom link", () => {
+  test("opens through a Link whose zoom source is the artwork", async () => {
+    mockLinkProps.length = 0;
+    const href = { pathname: "/items/page", params: { id: "m1" } };
+    await render(
+      <Card card={CARD} kind='portrait' onPress={() => {}} zoomHref={href} />,
+    );
+
+    expect(mockLinkProps.at(-1)).toMatchObject({ href, asChild: true });
+    expect(screen.getByTestId("apple-zoom-source")).toBeTruthy();
+  });
+
+  test("has no Link without one", async () => {
+    mockLinkProps.length = 0;
+    await render(<Card card={CARD} kind='portrait' onPress={() => {}} />);
+
+    expect(mockLinkProps).toHaveLength(0);
+    expect(screen.queryByTestId("apple-zoom-source")).toBeNull();
   });
 });

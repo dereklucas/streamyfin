@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { type Href, Link } from "expo-router";
 import isEqual from "lodash/isEqual";
 import { memo, useCallback } from "react";
 import { TouchableOpacity, View } from "react-native";
@@ -35,6 +36,11 @@ type CardProps = {
   /** The native context menu's actions (iPhone and iPad), in place of a long press. */
   menuActions?: NativeContextMenuAction[];
   onMenuAction?: (id: string, key: string) => void;
+  /**
+   * The page this poster zooms into (iOS 18's zoom transition): the card
+   * opens through an expo-router Link, its artwork the zoom's source.
+   */
+  zoomHref?: Href;
 };
 
 /**
@@ -52,6 +58,7 @@ const CardComponent: React.FC<CardProps> = ({
   onLongPress,
   menuActions,
   onMenuAction,
+  zoomHref,
 }) => {
   const layout = CARD_LAYOUTS[kind];
   const cardWidth = width ?? layout.cardWidth;
@@ -94,6 +101,19 @@ const CardComponent: React.FC<CardProps> = ({
     </View>
   );
 
+  // With a zoom link, the touchable is the Link's pressable and the artwork
+  // block (with its frosted title, when over) is what zooms into the page.
+  const zoomable = (touchable: React.ReactElement) =>
+    zoomHref ? (
+      <Link href={zoomHref} asChild>
+        {touchable}
+      </Link>
+    ) : (
+      touchable
+    );
+  const zoomSource = (artwork: React.ReactElement) =>
+    zoomHref ? <Link.AppleZoom>{artwork}</Link.AppleZoom> : artwork;
+
   return (
     <NativeContextMenu
       actions={menuActions ?? []}
@@ -103,96 +123,101 @@ const CardComponent: React.FC<CardProps> = ({
         hasMenu ? <CardMenuPreview card={card} kind={kind} /> : undefined
       }
     >
-      <TouchableOpacity
-        onPress={handlePress}
-        {...longPressFor(onLongPress ? handleLongPress : undefined, hasMenu)}
-        style={{ width: cardWidth, opacity: card.dimmed ? 0.5 : 1 }}
-      >
-        <View>
-          <CardArtwork
-            card={card}
-            width={cardWidth}
-            height={height}
-            cornerRadius={layout.cornerRadius}
-            overlay={slots?.overlay?.(card)}
-          />
-
-          {isOver && (
-            <>
-              {/* Frosted band, faded in from nothing so the text stays readable. */}
-              <LinearGradient
-                colors={["transparent", "rgba(0,0,0,0.85)"]}
-                pointerEvents='none'
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: height * layout.frostFraction,
-                  borderBottomLeftRadius: layout.cornerRadius,
-                  borderBottomRightRadius: layout.cornerRadius,
-                }}
+      {zoomable(
+        <TouchableOpacity
+          // Through a Link, the Link opens the page (with the zoom) instead.
+          onPress={zoomHref ? undefined : handlePress}
+          {...longPressFor(onLongPress ? handleLongPress : undefined, hasMenu)}
+          style={{ width: cardWidth, opacity: card.dimmed ? 0.5 : 1 }}
+        >
+          {zoomSource(
+            <View>
+              <CardArtwork
+                card={card}
+                width={cardWidth}
+                height={height}
+                cornerRadius={layout.cornerRadius}
+                overlay={slots?.overlay?.(card)}
               />
-              <View
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  paddingHorizontal: 10,
-                  paddingBottom: 9,
-                }}
+
+              {isOver && (
+                <>
+                  {/* Frosted band, faded in from nothing so the text stays readable. */}
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.85)"]}
+                    pointerEvents='none'
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: height * layout.frostFraction,
+                      borderBottomLeftRadius: layout.cornerRadius,
+                      borderBottomRightRadius: layout.cornerRadius,
+                    }}
+                  />
+                  <View
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      paddingHorizontal: 10,
+                      paddingBottom: 9,
+                    }}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontSize: 13, fontWeight: "600" }}
+                    >
+                      {card.title}
+                    </Text>
+                    {Boolean(card.subtitle) && (
+                      <Text
+                        numberOfLines={1}
+                        style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
+                      >
+                        {card.subtitle}
+                      </Text>
+                    )}
+                    {progressBar}
+                  </View>
+                </>
+              )}
+            </View>,
+          )}
+
+          {!isOver && (
+            <View style={{ paddingTop: 6 }}>
+              {progressBar}
+              <Text
+                numberOfLines={2}
+                style={{ fontSize: 13, fontWeight: "600", marginTop: 2 }}
               >
+                {card.title}
+              </Text>
+              {Boolean(card.subtitle) && (
                 <Text
                   numberOfLines={1}
-                  style={{ fontSize: 13, fontWeight: "600" }}
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
                 >
-                  {card.title}
+                  {card.subtitle}
                 </Text>
-                {Boolean(card.subtitle) && (
-                  <Text
-                    numberOfLines={1}
-                    style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
-                  >
-                    {card.subtitle}
-                  </Text>
-                )}
-                {progressBar}
-              </View>
-            </>
+              )}
+              {Boolean(card.detail) && (
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}
+                >
+                  {card.detail}
+                </Text>
+              )}
+            </View>
           )}
-        </View>
 
-        {!isOver && (
-          <View style={{ paddingTop: 6 }}>
-            {progressBar}
-            <Text
-              numberOfLines={2}
-              style={{ fontSize: 13, fontWeight: "600", marginTop: 2 }}
-            >
-              {card.title}
-            </Text>
-            {Boolean(card.subtitle) && (
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
-              >
-                {card.subtitle}
-              </Text>
-            )}
-            {Boolean(card.detail) && (
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}
-              >
-                {card.detail}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {slots?.footer?.(card)}
-      </TouchableOpacity>
+          {slots?.footer?.(card)}
+        </TouchableOpacity>,
+      )}
     </NativeContextMenu>
   );
 };

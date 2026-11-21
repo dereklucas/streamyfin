@@ -117,6 +117,7 @@ export const CardRow: React.FC<Props> = ({
     handleLongPress,
     menuActionsFor,
     handleMenuAction,
+    zoomHrefFor,
     actionSheet,
   } = useItemCardBehavior({
     items,
@@ -174,6 +175,7 @@ export const CardRow: React.FC<Props> = ({
         onLongPress={handleLongPress}
         menuActions={menuActionsFor?.(item.id)}
         onMenuAction={handleMenuAction}
+        zoomHref={zoomHrefFor(item.id)}
       />
     ),
     [
@@ -183,6 +185,7 @@ export const CardRow: React.FC<Props> = ({
       handlePress,
       handleLongPress,
       menuActionsFor,
+      zoomHrefFor,
       handleMenuAction,
     ],
   );

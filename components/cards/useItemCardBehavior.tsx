@@ -2,6 +2,7 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { useSegments } from "expo-router";
 import { useAtomValue } from "jotai";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { ItemActionSheetHost } from "@/components/common/ItemActionSheetHost";
 import { hasNativeContextMenu } from "@/components/common/NativeContextMenu";
 import {
@@ -11,6 +12,7 @@ import {
 import useRouter from "@/hooks/useAppRouter";
 import { useItemMenus } from "@/hooks/useItemMenus";
 import { apiAtom } from "@/providers/JellyfinProvider";
+import { useOfflineMode } from "@/providers/OfflineModeProvider";
 import { buildItemCards, type CardData, type CardKind } from "./CardData";
 
 type Options = {
@@ -80,6 +82,37 @@ export function useItemCardBehavior({
   useLayoutEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  // The page a movie's poster zooms into (iOS 18's zoom transition, through
+  // an expo-router Link, which the card renders). Read during render, so from
+  // the items themselves rather than the ref. A screen with its own press
+  // keeps it, and other kinds keep the plain push while this is tried on
+  // movies.
+  const isOffline = useOfflineMode();
+  const zoomHrefs = useMemo(() => {
+    const hrefs = new Map<string, ReturnType<typeof getItemNavigation>>();
+    if (Platform.OS !== "ios" || Platform.isTV || onPressId || onPressItem) {
+      return hrefs;
+    }
+    for (const item of items ?? []) {
+      if (item.Type !== "Movie" || !item.Id) continue;
+      const navigation = getItemNavigation(item, from);
+      if (!navigation) continue;
+      // As useAppRouter adds it to a push: the Link does not go through it.
+      hrefs.set(item.Id, {
+        ...navigation,
+        params: {
+          ...(isOffline && { offline: "true" }),
+          ...("params" in navigation ? navigation.params : {}),
+        },
+      } as ReturnType<typeof getItemNavigation>);
+    }
+    return hrefs;
+  }, [items, from, isOffline, onPressId, onPressItem]);
+  const zoomHrefFor = useCallback(
+    (id: string) => zoomHrefs.get(id),
+    [zoomHrefs],
+  );
 
   const cards = useMemo(
     () =>
@@ -176,6 +209,8 @@ export function useItemCardBehavior({
     /** The poster's native context menu actions, where there is one. */
     menuActionsFor: nativeMenu ? menuActionsFor : undefined,
     handleMenuAction,
+    /** The page a poster zooms into, where it does (a movie, on iOS). */
+    zoomHrefFor,
     /** Mount alongside the cards; renders nothing until a long press. */
     actionSheet: (
       <>

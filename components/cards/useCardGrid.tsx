@@ -56,6 +56,7 @@ export function useCardGrid({
     handleLongPress,
     menuActionsFor,
     handleMenuAction,
+    zoomHrefFor,
     actionSheet,
   } = useItemCardBehavior({
     items,
@@ -113,6 +114,7 @@ export function useCardGrid({
           onLongPress={handleLongPress}
           menuActions={menuActionsFor?.(item.id)}
           onMenuAction={handleMenuAction}
+          zoomHref={zoomHrefFor(item.id)}
         />
       </View>
     ),
@@ -124,6 +126,7 @@ export function useCardGrid({
       handlePress,
       handleLongPress,
       menuActionsFor,
+      zoomHrefFor,
       handleMenuAction,
     ],
   );

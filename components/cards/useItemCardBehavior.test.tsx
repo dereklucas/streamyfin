@@ -29,8 +29,10 @@ jest.mock("@/hooks/useAppRouter", () => {
   const router = { push: () => {} };
   return { __esModule: true, default: () => router };
 });
+// The real routes (plain data): the zoom link is checked against them.
 jest.mock("@/components/common/TouchableItemRouter", () => ({
-  getItemNavigation: () => "",
+  getItemNavigation: jest.requireActual("@/utils/itemNavigation")
+    .getItemNavigation,
   itemRouter: () => "",
 }));
 const mockMarkAsPlayed = jest.fn(async (_played: boolean) => {});
@@ -54,16 +56,20 @@ const MOVIE: BaseItemDto = { Id: "movie-1", Type: "Movie", Name: "Movie" };
 let longPress: ((id: string) => void) | undefined;
 let menuActionsFor: ((id: string) => { key: string }[] | undefined) | undefined;
 let menuAction: (id: string, key: string) => void = () => {};
+let zoomHrefFor: ((id: string) => unknown) | undefined;
 
-const Harness = () => {
+const SERIES: BaseItemDto = { Id: "series-1", Type: "Series", Name: "Show" };
+
+const Harness = ({ items = [MOVIE] }: { items?: BaseItemDto[] }) => {
   const behavior = useItemCardBehavior({
-    items: [MOVIE],
+    items,
     kind: "rowWide",
     enableActionSheet: true,
   });
   longPress = behavior.handleLongPress;
   menuActionsFor = behavior.menuActionsFor;
   menuAction = behavior.handleMenuAction;
+  zoomHrefFor = behavior.zoomHrefFor;
   return behavior.actionSheet;
 };
 
@@ -141,5 +147,36 @@ describe("useItemCardBehavior long press, iPhone and iPad", () => {
     await act(async () => menuAction(MOVIE.Id!, "unplayed"));
 
     expect(mockMarkAsPlayed).toHaveBeenCalledTimes(2);
+  });
+});
+
+// A movie's poster zooms into its page (iOS 18's zoom transition, through an
+// expo-router Link): the hook hands the card the page the poster opens.
+describe("useItemCardBehavior zoom into a movie's page", () => {
+  const originalOS = Platform.OS;
+  afterEach(() => {
+    Platform.OS = originalOS;
+  });
+
+  test("gives a movie poster the link to its page", async () => {
+    await render(<Harness />);
+
+    expect(zoomHrefFor?.(MOVIE.Id!)).toEqual({
+      pathname: "/items/page",
+      params: { id: MOVIE.Id },
+    });
+  });
+
+  test("keeps other items on the plain push, for now", async () => {
+    await render(<Harness items={[SERIES]} />);
+
+    expect(zoomHrefFor?.(SERIES.Id!)).toBeUndefined();
+  });
+
+  test("has no zoom on Android", async () => {
+    Platform.OS = "android";
+    await render(<Harness />);
+
+    expect(zoomHrefFor?.(MOVIE.Id!)).toBeUndefined();
   });
 });

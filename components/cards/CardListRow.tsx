@@ -49,6 +49,7 @@ export const CardListRow: React.FC<Props> = ({
     <NativeContextMenu
       actions={menuActions ?? []}
       onAction={(key) => onMenuAction?.(key)}
+      fillWidth
       preview={
         menuActions?.length ? (
           <CardMenuPreview card={card} kind={kind} />

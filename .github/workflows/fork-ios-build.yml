@@ -108,9 +108,11 @@ jobs:
           git tag -f "ios-build/$HASH" "$GITHUB_SHA"
           git push -f origin "refs/tags/ios-build/$HASH"
 
-      # The same build with EXPO_TV=1 (the fork_tv profile): prebuild makes
-      # the tvOS project and its Top Shelf extension, and EAS signs it with a
-      # tvOS App Store profile it makes in place of the iOS one.
+      # The production profile again, with EXPO_TV=1 from the environment:
+      # prebuild makes the tvOS project and its Top Shelf extension, and
+      # eas-cli reads it too, signing with a tvOS App Store profile it makes
+      # in place of the iOS one. (Not a profile of its own: eas.json is part
+      # of the native fingerprint, and a new profile rebuilt iOS.)
       - name: Build tvOS
         if: inputs.build_tvos
         env:
@@ -121,7 +123,7 @@ jobs:
           echo "$BUILD_NOTES"
           export BUILD_NOTES
           mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
-          bun x "$EAS_CLI" build --platform ios --profile fork_tv --local \
+          bun x "$EAS_CLI" build --platform ios --profile production --local \
             --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/tv.ipa"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

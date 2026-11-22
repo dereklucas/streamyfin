@@ -72,8 +72,9 @@ record (tvOS is added as a platform there). The same workflow ships it, with
 its own fingerprint (computed with `EXPO_TV=1`), its own tag
 (`tvos-build/<fingerprint>`) and its own JS updates, on the same branches and
 channels as iOS: a change can rebuild one platform and only update the
-other. Both build in one job on the Mac runner, iOS first (tvOS uses the
-`fork_tv` profile in `eas.json`). EAS keeps a single App Store provisioning
+other. Both build in one job on the Mac runner, iOS first (tvOS with the
+same `production` profile and `EXPO_TV=1` in the environment: `eas.json` is
+part of the native fingerprint, so a profile of its own rebuilt iOS). EAS keeps a single App Store provisioning
 profile per bundle identifier, whatever the platform, so each build replaces
 the other's with its own (made through the App Store Connect API key on EAS),
 and the two must never build at the same time. Each build leaves a new

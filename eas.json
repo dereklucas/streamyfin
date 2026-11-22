@@ -106,12 +106,6 @@
     "ci_tv": {
       "extends": "production_tv",
       "autoIncrement": false
-    },
-    "fork_tv": {
-      "extends": "production",
-      "env": {
-        "EXPO_TV": "1"
-      }
     }
   },
   "submit": {

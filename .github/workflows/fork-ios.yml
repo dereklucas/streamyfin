@@ -27,7 +27,7 @@
 # move are found through EAS as well.
 #
 # Apple TV is the same app, a tvOS build on the same App Store Connect record
-# (`EXPO_TV=1`, the `fork_tv` profile). Its native code differs, so it has a
+# (`EXPO_TV=1` in the environment, the same `production` profile). Its native code differs, so it has a
 # fingerprint, a tag (`tvos-build/<fingerprint>`) and updates of its own, all
 # decided alongside iOS's: either one can be built while the other only gets
 # an update. Both build in one job, iOS first: EAS keeps one App Store

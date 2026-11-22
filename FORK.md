@@ -67,7 +67,19 @@ picks one of two paths, based on the iOS native fingerprint
 reaches a binary whose native code matches it. A JS update can't crash an
 older binary.
 
-Force a native build anyway: Actions → "🍎 Fork: ship iOS" → Run workflow
+**Apple TV** is a tvOS build of the same app, on the same App Store Connect
+record (tvOS is added as a platform there). The same workflow ships it, with
+its own fingerprint (computed with `EXPO_TV=1`), its own tag
+(`tvos-build/<fingerprint>`) and its own JS updates, on the same branches and
+channels as iOS: a change can rebuild one platform and only update the
+other. Both build in one job on the Mac runner, iOS first (tvOS uses the
+`fork_tv` profile in `eas.json`). EAS keeps a single App Store provisioning
+profile per bundle identifier, whatever the platform, so each build replaces
+the other's with its own (made through the App Store Connect API key on EAS),
+and the two must never build at the same time. Each build leaves a new
+profile in the Apple Developer portal.
+
+Force a native build anyway: Actions → "🍎 Fork: ship iOS and tvOS" → Run workflow
 on `development` with "full build" ticked. Run it on a `fix/*` or `feat/*`
 branch to build that branch for testing native work before merging; then
 follow the branch from More → Developer for its JS updates. Or push it as

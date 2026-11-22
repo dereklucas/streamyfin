@@ -1,14 +1,29 @@
-# Fork-only: the iOS build, called by fork-ios.yml (once, and again when an
-# attempt is cancelled before any runner took it). See FORK.md.
-name: "🍎 Fork: build iOS"
+# Fork-only: the iOS and tvOS builds, called by fork-ios.yml (once, and again
+# when an attempt is cancelled before any runner took it). See FORK.md.
+#
+# One job builds both, iOS first, never two at once: EAS keeps one App Store
+# provisioning profile per bundle identifier whatever the platform, so each
+# build swaps the stored profile for its own (made with the App Store Connect
+# API key on EAS). A failed tvOS build leaves the iOS one shipped.
+name: "🍎 Fork: build iOS and tvOS"
 
 on:
   workflow_call:
     inputs:
       fingerprint:
-        description: The native fingerprint, also the runtime version
+        description: The iOS native fingerprint, also its runtime version
         type: string
         required: true
+      tv_fingerprint:
+        description: The tvOS native fingerprint, also its runtime version
+        type: string
+        required: true
+      build_ios:
+        type: boolean
+        default: true
+      build_tvos:
+        type: boolean
+        default: false
     secrets:
       EXPO_TOKEN:
         required: true
@@ -19,28 +34,18 @@ env:
 
 jobs:
   build:
-    name: Build iOS and upload to TestFlight
+    name: Build and upload to TestFlight
     # macos-26: only its Xcode compiles expo-modules-jsi (macos-15's Xcode
     # 26.3 rejects it as a data race). Its runners are scarce: a job no runner
     # takes within ~15 min is cancelled unstarted, so fork-ios.yml retries.
     runs-on: macos-26
-    timeout-minutes: 120
+    timeout-minutes: 200
     env:
-      FORK_RUNTIME_VERSION: ${{ inputs.fingerprint }}
       EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/build-output
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # tags and history, for the notes
-
-      # What changed since the last shipped build, baked into the app for the
-      # Developer screen. (TestFlight's "What to Test" cannot be set: eas
-      # submit's changelog is for EAS Enterprise plans only.)
-      - name: Notes
-        run: |
-          notes=$(bash scripts/fork/build-notes.sh)
-          echo "$notes"
-          { echo "BUILD_NOTES<<FORK_NOTES_END"; echo "$notes"; echo "FORK_NOTES_END"; } >> "$GITHUB_ENV"
 
       - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
@@ -64,29 +69,80 @@ jobs:
           pod --version || sudo gem install cocoapods
           fastlane --version || brew install fastlane
 
+      # What changed since the last shipped build, baked into the app for the
+      # Developer screen. (TestFlight's "What to Test" cannot be set: eas
+      # submit's changelog is for EAS Enterprise plans only.)
       # The production profile's custom steps (.eas/build/ios-production.yml)
       # run here as they do on EAS; the runtime version comes from the env.
-      - name: Build
+      - name: Build iOS
+        if: inputs.build_ios
+        env:
+          FORK_RUNTIME_VERSION: ${{ inputs.fingerprint }}
         run: |
+          BUILD_NOTES=$(bash scripts/fork/build-notes.sh)
+          echo "$BUILD_NOTES"
+          export BUILD_NOTES
           mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
           bun x "$EAS_CLI" build --platform ios --profile production --local \
             --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/app.ipa"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.build_ios
         with:
           name: streamyfin-ios-${{ inputs.fingerprint }}
           path: build-output/app.ipa
           retention-days: 14
 
-      - name: Upload to TestFlight
+      - name: Upload iOS to TestFlight
+        if: inputs.build_ios
         run: |
           bun x "$EAS_CLI" submit --platform ios --profile production \
             --path "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/app.ipa" \
             --non-interactive --wait
 
-      - name: Record the shipped build
+      - name: Record the shipped iOS build
+        if: inputs.build_ios
         env:
           HASH: ${{ inputs.fingerprint }}
         run: |
           git tag -f "ios-build/$HASH" "$GITHUB_SHA"
           git push -f origin "refs/tags/ios-build/$HASH"
+
+      # The same build with EXPO_TV=1 (the fork_tv profile): prebuild makes
+      # the tvOS project and its Top Shelf extension, and EAS signs it with a
+      # tvOS App Store profile it makes in place of the iOS one.
+      - name: Build tvOS
+        if: inputs.build_tvos
+        env:
+          EXPO_TV: "1"
+          FORK_RUNTIME_VERSION: ${{ inputs.tv_fingerprint }}
+        run: |
+          BUILD_NOTES=$(bash scripts/fork/build-notes.sh "" tvos-build)
+          echo "$BUILD_NOTES"
+          export BUILD_NOTES
+          mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
+          bun x "$EAS_CLI" build --platform ios --profile fork_tv --local \
+            --non-interactive --output "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/tv.ipa"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.build_tvos
+        with:
+          name: streamyfin-tvos-${{ inputs.tv_fingerprint }}
+          path: build-output/tv.ipa
+          retention-days: 14
+
+      # The same App Store Connect app: Apple files it under tvOS.
+      - name: Upload tvOS to TestFlight
+        if: inputs.build_tvos
+        run: |
+          bun x "$EAS_CLI" submit --platform ios --profile production \
+            --path "$EAS_LOCAL_BUILD_ARTIFACTS_DIR/tv.ipa" \
+            --non-interactive --wait
+
+      - name: Record the shipped tvOS build
+        if: inputs.build_tvos
+        env:
+          HASH: ${{ inputs.tv_fingerprint }}
+        run: |
+          git tag -f "tvos-build/$HASH" "$GITHUB_SHA"
+          git push -f origin "refs/tags/tvos-build/$HASH"

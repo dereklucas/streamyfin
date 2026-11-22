@@ -1,4 +1,4 @@
-# Fork-only (dereklucas/streamyfin): ships iOS from GitHub Actions, which is
+# Fork-only (dereklucas/streamyfin): ships iOS and tvOS from GitHub Actions, which is
 # free without a minute limit for a public repository, macOS runners included.
 # Replaces the EAS workflows in .eas/workflows/ (now manual-only), whose free
 # plan allows 60 CI minutes a month. See FORK.md.
@@ -26,9 +26,18 @@
 # builds do not show up in EAS's build list). Builds made by EAS before the
 # move are found through EAS as well.
 #
+# Apple TV is the same app, a tvOS build on the same App Store Connect record
+# (`EXPO_TV=1`, the `fork_tv` profile). Its native code differs, so it has a
+# fingerprint, a tag (`tvos-build/<fingerprint>`) and updates of its own, all
+# decided alongside iOS's: either one can be built while the other only gets
+# an update. Both build in one job, iOS first: EAS keeps one App Store
+# provisioning profile per bundle identifier, whatever the platform, so each
+# build replaces the other's profile (from the App Store Connect API key on
+# EAS) and two at once would sign with the wrong one.
+#
 # Needs the repository secret EXPO_TOKEN (an Expo robot token for the
 # dereklucas account).
-name: "🍎 Fork: ship iOS"
+name: "🍎 Fork: ship iOS and tvOS"
 
 on:
   push:
@@ -61,6 +70,10 @@ jobs:
     outputs:
       fingerprint: ${{ steps.fingerprint.outputs.hash }}
       shipped: ${{ steps.shipped.outputs.shipped }}
+      tv_fingerprint: ${{ steps.fingerprint.outputs.tv_hash }}
+      tv_shipped: ${{ steps.shipped.outputs.tv_shipped }}
+      build_ios: ${{ steps.plan.outputs.build_ios }}
+      build_tvos: ${{ steps.plan.outputs.build_tvos }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -82,52 +95,69 @@ jobs:
         id: fingerprint
         run: |
           HASH=$(bun x fingerprint fingerprint:generate --platform ios | jq -r .hash)
-          if [ -z "$HASH" ] || [ "$HASH" = null ]; then echo "No fingerprint" >&2; exit 1; fi
+          TV_HASH=$(EXPO_TV=1 bun x fingerprint fingerprint:generate --platform ios | jq -r .hash)
+          for h in "$HASH" "$TV_HASH"; do
+            if [ -z "$h" ] || [ "$h" = null ]; then echo "No fingerprint" >&2; exit 1; fi
+          done
           echo "iOS fingerprint: $HASH"
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "tvOS fingerprint: $TV_HASH"
+          { echo "hash=$HASH"; echo "tv_hash=$TV_HASH"; } >> "$GITHUB_OUTPUT"
 
       - name: Look for a shipped build with it
         id: shipped
         env:
           HASH: ${{ steps.fingerprint.outputs.hash }}
+          TV_HASH: ${{ steps.fingerprint.outputs.tv_hash }}
         run: |
-          if git rev-parse -q --verify "refs/tags/ios-build/$HASH" >/dev/null; then
-            echo "Shipped: tag ios-build/$HASH"
-            echo "shipped=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          # shipped <tag prefix> <fingerprint>: prints true or false
+          shipped() {
+            if git rev-parse -q --verify "refs/tags/$1/$2" >/dev/null; then
+              echo "Shipped: tag $1/$2" >&2
+              echo true
+              return
+            fi
+            COUNT=$(bun x "$EAS_CLI" build:list --platform ios --status finished \
+              --fingerprint-hash "$2" --limit 1 --json --non-interactive 2>/dev/null \
+              | jq 'length' || echo 0)
+            if [ "${COUNT:-0}" -gt 0 ]; then
+              echo "Shipped: an EAS build has fingerprint $2" >&2
+              echo true
+            else
+              echo "No build has fingerprint $2 yet" >&2
+              echo false
+            fi
+          }
+          echo "shipped=$(shipped ios-build "$HASH")" >> "$GITHUB_OUTPUT"
+          echo "tv_shipped=$(shipped tvos-build "$TV_HASH")" >> "$GITHUB_OUTPUT"
+
+      # Which platforms to build: only on the branches that build, each when
+      # nothing shipped has its native code (or "full build" is ticked).
+      - name: Plan the builds
+        id: plan
+        env:
+          SHIPPED: ${{ steps.shipped.outputs.shipped }}
+          TV_SHIPPED: ${{ steps.shipped.outputs.tv_shipped }}
+          FULL: ${{ inputs.full_build || false }}
+          CAN_BUILD: ${{ github.ref_name == 'development' || startsWith(github.ref_name, 'build/') || github.event_name == 'workflow_dispatch' }}
+        run: |
+          build_ios=false
+          build_tvos=false
+          if [ "$CAN_BUILD" = true ]; then
+            if [ "$SHIPPED" != true ] || [ "$FULL" = true ]; then build_ios=true; fi
+            if [ "$TV_SHIPPED" != true ] || [ "$FULL" = true ]; then build_tvos=true; fi
           fi
-          COUNT=$(bun x "$EAS_CLI" build:list --platform ios --status finished \
-            --fingerprint-hash "$HASH" --limit 1 --json --non-interactive 2>/dev/null \
-            | jq 'length' || echo 0)
-          if [ "${COUNT:-0}" -gt 0 ]; then
-            echo "Shipped: an EAS build has this fingerprint"
-            echo "shipped=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No build has this fingerprint yet"
-            echo "shipped=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "Build iOS: $build_ios, tvOS: $build_tvos"
+          { echo "build_ios=$build_ios"; echo "build_tvos=$build_tvos"; } >> "$GITHUB_OUTPUT"
 
   update:
     name: Publish JS update
     needs: decide
-    if: needs.decide.outputs.shipped == 'true' && !inputs.full_build
+    if: (needs.decide.outputs.shipped == 'true' || needs.decide.outputs.tv_shipped == 'true') && !inputs.full_build
     runs-on: ubuntu-latest
-    env:
-      FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.fingerprint }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # tags and history, for the notes
-
-      # What changed since the build this update runs on, baked into the
-      # update (app.config.ts → the Developer screen's "What to test").
-      - name: Notes
-        env:
-          HASH: ${{ needs.decide.outputs.fingerprint }}
-        run: |
-          notes=$(bash scripts/fork/build-notes.sh "ios-build/$HASH")
-          echo "$notes"
-          { echo "BUILD_NOTES<<FORK_NOTES_END"; echo "$notes"; echo "FORK_NOTES_END"; } >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -149,12 +179,35 @@ jobs:
           bun x "$EAS_CLI" channel:create "$GITHUB_REF_NAME" --non-interactive \
             || echo "Channel $GITHUB_REF_NAME already exists."
 
-      - name: Publish
+      # One update per platform: the same branch and channel, each under its
+      # own runtime version (fingerprint), so each build only takes its own.
+      # tvOS's is bundled with EXPO_TV=1, which picks the .tv.* files. Each
+      # carries what changed since the build it runs on (BUILD_NOTES →
+      # app.config.ts → the Developer screen's "What to test").
+      - name: Publish for iOS
+        if: needs.decide.outputs.shipped == 'true'
         env:
+          FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.fingerprint }}
           UPDATE_BRANCH: ${{ github.ref_name == 'development' && 'production' || github.ref_name }}
           MESSAGE: ${{ github.event.head_commit.message || github.sha }}
         run: |
-          bun x "$EAS_CLI" update --branch "$UPDATE_BRANCH" --platform ios \
+          notes=$(bash scripts/fork/build-notes.sh "ios-build/$FORK_RUNTIME_VERSION")
+          echo "$notes"
+          BUILD_NOTES="$notes" bun x "$EAS_CLI" update --branch "$UPDATE_BRANCH" --platform ios \
+            --environment production --message "$(echo "$MESSAGE" | head -1)" \
+            --non-interactive
+
+      - name: Publish for tvOS
+        if: needs.decide.outputs.tv_shipped == 'true'
+        env:
+          EXPO_TV: "1"
+          FORK_RUNTIME_VERSION: ${{ needs.decide.outputs.tv_fingerprint }}
+          UPDATE_BRANCH: ${{ github.ref_name == 'development' && 'production' || github.ref_name }}
+          MESSAGE: ${{ github.event.head_commit.message || github.sha }}
+        run: |
+          notes=$(bash scripts/fork/build-notes.sh "tvos-build/$FORK_RUNTIME_VERSION" tvos-build)
+          echo "$notes"
+          BUILD_NOTES="$notes" bun x "$EAS_CLI" update --branch "$UPDATE_BRANCH" --platform ios \
             --environment production --message "$(echo "$MESSAGE" | head -1)" \
             --non-interactive
 
@@ -164,10 +217,13 @@ jobs:
   build:
     name: Build
     needs: decide
-    if: (github.ref_name == 'development' || startsWith(github.ref_name, 'build/') || github.event_name == 'workflow_dispatch') && (needs.decide.outputs.shipped != 'true' || inputs.full_build)
+    if: needs.decide.outputs.build_ios == 'true' || needs.decide.outputs.build_tvos == 'true'
     uses: ./.github/workflows/fork-ios-build.yml
     with:
       fingerprint: ${{ needs.decide.outputs.fingerprint }}
+      tv_fingerprint: ${{ needs.decide.outputs.tv_fingerprint }}
+      build_ios: ${{ needs.decide.outputs.build_ios == 'true' }}
+      build_tvos: ${{ needs.decide.outputs.build_tvos == 'true' }}
     secrets: inherit
 
   build-retry:
@@ -177,6 +233,9 @@ jobs:
     uses: ./.github/workflows/fork-ios-build.yml
     with:
       fingerprint: ${{ needs.decide.outputs.fingerprint }}
+      tv_fingerprint: ${{ needs.decide.outputs.tv_fingerprint }}
+      build_ios: ${{ needs.decide.outputs.build_ios == 'true' }}
+      build_tvos: ${{ needs.decide.outputs.build_tvos == 'true' }}
     secrets: inherit
 
   build-retry-2:
@@ -186,4 +245,7 @@ jobs:
     uses: ./.github/workflows/fork-ios-build.yml
     with:
       fingerprint: ${{ needs.decide.outputs.fingerprint }}
+      tv_fingerprint: ${{ needs.decide.outputs.tv_fingerprint }}
+      build_ios: ${{ needs.decide.outputs.build_ios == 'true' }}
+      build_tvos: ${{ needs.decide.outputs.build_tvos == 'true' }}
     secrets: inherit

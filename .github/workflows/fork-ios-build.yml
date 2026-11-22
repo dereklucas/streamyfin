@@ -113,6 +113,23 @@ jobs:
       # eas-cli reads it too, signing with a tvOS App Store profile it makes
       # in place of the iOS one. (Not a profile of its own: eas.json is part
       # of the native fingerprint, and a new profile rebuilt iOS.)
+      # Making the tvOS profiles signs in to Apple with the App Store Connect
+      # key stored on EAS, which also needs the team ID: without it eas-cli
+      # asks for one, and a non-interactive build fails. It is the team of the
+      # app's iOS credentials on EAS.
+      - name: Apple team
+        if: inputs.build_tvos
+        run: |
+          PROJECT_ID=$(jq -r .expo.extra.eas.projectId app.json)
+          QUERY='query($id: String!) { app { byId(appId: $id) { iosAppCredentials { appleTeam { appleTeamIdentifier } } } } }'
+          TEAM=$(jq -n --arg q "$QUERY" --arg id "$PROJECT_ID" '{query: $q, variables: {id: $id}}' \
+            | curl -sS https://api.expo.dev/graphql \
+                -H "Authorization: Bearer $EXPO_TOKEN" -H "Content-Type: application/json" -d @- \
+            | jq -r '[.data.app.byId.iosAppCredentials[]?.appleTeam.appleTeamIdentifier // empty][0] // empty')
+          if [ -z "$TEAM" ]; then echo "No Apple team in the app's EAS credentials" >&2; exit 1; fi
+          echo "Apple team: $TEAM"
+          echo "EXPO_APPLE_TEAM_ID=$TEAM" >> "$GITHUB_ENV"
+
       - name: Build tvOS
         if: inputs.build_tvos
         env:

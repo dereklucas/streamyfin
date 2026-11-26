@@ -58,6 +58,7 @@ import {
   parseBitrateParam,
   playerQualityOptions,
 } from "@/utils/bitrate";
+import { formatClockTime } from "@/utils/deviceClock";
 import { resolveStartTicks } from "@/utils/directPlayer/sessionPosition";
 import { episodeSubtitle } from "@/utils/episodeLabel";
 import {
@@ -76,12 +77,7 @@ import {
   buildSubtitleMenu,
   type TrackMenuRow,
 } from "@/utils/subtitles/trackMenu";
-import {
-  formatClockTime,
-  formatTimeString,
-  msToTicks,
-  ticksToMs,
-} from "@/utils/time";
+import { formatTimeString, msToTicks, ticksToMs } from "@/utils/time";
 import { CONTROLS_CONSTANTS } from "./constants";
 import { useVideoContext } from "./contexts/VideoContext";
 import { useChapterNavigation } from "./hooks/useChapterNavigation";

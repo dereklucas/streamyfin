@@ -1,3 +1,4 @@
+import { deviceClock } from "@/utils/deviceClock";
 import type { NotificationPause } from "@/utils/notificationPreferences";
 
 /**
@@ -22,7 +23,7 @@ export const pauseUntilText = (
   locale?: string,
   timeZone?: string,
 ): string => {
-  const time = { hour: "2-digit", minute: "2-digit", timeZone } as const;
+  const time = { minute: "2-digit", timeZone, ...deviceClock() } as const;
   const day = (date: Date) => date.toLocaleDateString(locale, { timeZone });
 
   return day(until) === day(now)

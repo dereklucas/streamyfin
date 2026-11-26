@@ -12,6 +12,7 @@ import { Text } from "@/components/common/Text";
 import { useTVFocusAnimation } from "@/components/tv/hooks/useTVFocusAnimation";
 import { Colors } from "@/constants/Colors";
 import { useScaledTVTypography } from "@/constants/TVTypography";
+import { formatClockTime } from "@/utils/deviceClock";
 
 interface TVGuideProgramCellProps {
   program: BaseItemDto;
@@ -40,11 +41,7 @@ export const TVGuideProgramCell: React.FC<TVGuideProgramCellProps> = ({
   const formatTime = (date: string | null | undefined) => {
     if (!date) return "";
     const d = new Date(date);
-    return d.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatClockTime(d);
   };
 
   return (

@@ -1,4 +1,12 @@
+import { getCalendars } from "expo-localization";
+import { deviceCalendar } from "@/test-utils/deviceClock";
 import { pauseState, pauseUntilText } from "./pause";
+
+jest.mock("expo-localization", () => ({ getCalendars: jest.fn() }));
+
+beforeEach(() => {
+  jest.mocked(getCalendars).mockReturnValue(deviceCalendar(true));
+});
 
 const now = new Date("2026-10-07T01:00:00Z");
 
@@ -43,5 +51,13 @@ describe("a pause, as the screen shows it", () => {
 
     expect(text).toContain("Thu");
     expect(text).toContain("09:00");
+  });
+
+  // The language says 24-hour; the device's own setting wins.
+  test("follows the device's 12-hour clock", () => {
+    jest.mocked(getCalendars).mockReturnValue(deviceCalendar(false));
+    const until = new Date("2026-10-07T05:30:00Z");
+
+    expect(pauseUntilText(until, now, "en-GB", "UTC")).toMatch(/^5:30\sam$/i);
   });
 });

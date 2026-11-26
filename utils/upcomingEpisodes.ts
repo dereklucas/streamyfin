@@ -1,4 +1,5 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { deviceClock } from "@/utils/deviceClock";
 
 const DAY_MS = 86_400_000;
 
@@ -64,9 +65,10 @@ export const formatAirDay = (day: string, locale?: string): string =>
   });
 
 /**
- * A series' air time, in the clock format of `locale` or of the device when
- * none is given. Providers write it freely ("21:00", "9:00 PM"), so anything
- * that is not a time of day is shown as is.
+ * A series' air time, written as `locale` writes times (the device's when
+ * none is given), by the device's 12/24-hour clock. Providers write it
+ * freely ("21:00", "9:00 PM"), so anything that is not a time of day is
+ * shown as is.
  */
 export const formatAirTime = (
   airTime?: string | null,
@@ -83,8 +85,8 @@ export const formatAirTime = (
   const minutes = Number(match[2]);
   if (hours > 23 || minutes > 59) return raw;
   return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString(locale, {
-    hour: "numeric",
     minute: "2-digit",
+    ...deviceClock(),
   });
 };
 

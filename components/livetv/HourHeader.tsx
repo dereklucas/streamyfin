@@ -3,6 +3,7 @@ import {
   LIVE_TV_GUIDE_HOUR_MS,
   LIVE_TV_GUIDE_HOUR_WIDTH,
 } from "@/constants/LiveTVGuide";
+import { formatClockTime } from "@/utils/deviceClock";
 import { Text } from "../common/Text";
 
 /** The guide's hours, from `startTime` to midnight. */
@@ -35,12 +36,7 @@ const HourCell = ({ hour }: { hour: Date }) => (
     style={{ width: LIVE_TV_GUIDE_HOUR_WIDTH }}
     className='flex items-center justify-center bg-neutral-800'
   >
-    <Text className='text-xs text-gray-600'>
-      {hour.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })}
-    </Text>
+    <Text className='text-xs text-gray-600'>{formatClockTime(hour)}</Text>
   </View>
 );
 

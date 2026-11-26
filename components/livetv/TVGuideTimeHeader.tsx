@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, View } from "react-native";
 import { Text } from "@/components/common/Text";
 import { useScaledTVTypography } from "@/constants/TVTypography";
+import { formatClockTime } from "@/utils/deviceClock";
 
 interface TVGuideTimeHeaderProps {
   baseTime: Date;
@@ -26,11 +27,7 @@ export const TVGuideTimeHeader: React.FC<TVGuideTimeHeaderProps> = ({
   }
 
   const formatHour = (date: Date) => {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatClockTime(date);
   };
 
   return (

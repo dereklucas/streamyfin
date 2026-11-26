@@ -1,4 +1,6 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models";
+import { getCalendars } from "expo-localization";
+import { deviceCalendar } from "@/test-utils/deviceClock";
 import {
   airDayKey,
   airDayOffset,
@@ -8,6 +10,12 @@ import {
   groupByAirDay,
   nextUpcomingStartIndex,
 } from "./upcomingEpisodes";
+
+jest.mock("expo-localization", () => ({ getCalendars: jest.fn() }));
+
+beforeEach(() => {
+  jest.mocked(getCalendars).mockReturnValue(deviceCalendar(null));
+});
 
 const episode = (id: string, premiereDate?: string): BaseItemDto => ({
   Id: id,
@@ -79,13 +87,22 @@ describe("air day and time labels", () => {
     expect(formatAirDay("2026-10-06", "fr-FR")).toBe("mardi 6 octobre");
   });
 
-  test("shows an air time in the device's clock format", () => {
+  test("shows an air time in the locale's clock format", () => {
     // Node separates the meridiem with a narrow no-break space.
     const plain = (time: string | null) => time?.replace(/\s/g, " ");
     expect(plain(formatAirTime("21:00", "en-US"))).toBe("9:00 PM");
     expect(plain(formatAirTime("9:00 pm", "en-US"))).toBe("9:00 PM");
     expect(plain(formatAirTime("12:30 AM", "en-US"))).toBe("12:30 AM");
     expect(formatAirTime("9:00 PM", "fr-FR")).toBe("21:00");
+  });
+
+  // The 12/24-hour setting is the device's, whatever the locale says.
+  test("follows the device's clock over the locale's", () => {
+    const plain = (time: string | null) => time?.replace(/\s/g, " ");
+    jest.mocked(getCalendars).mockReturnValue(deviceCalendar(true));
+    expect(formatAirTime("9:00 PM", "en-US")).toBe("21:00");
+    jest.mocked(getCalendars).mockReturnValue(deviceCalendar(false));
+    expect(plain(formatAirTime("21:00", "fr-FR"))).toBe("9:00 PM");
   });
 
   test("shows what the provider wrote when it is not a time of day", () => {

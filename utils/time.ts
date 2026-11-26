@@ -1,19 +1,3 @@
-import { getCalendars } from "expo-localization";
-
-/**
- * A wall-clock time, as "9:05 PM" or "21:05" by the device's own clock: the
- * 12/24-hour setting is a device preference, not part of the locale, so the
- * locale alone gets it wrong (an en-US phone set to 24-hour still says PM).
- */
-export const formatClockTime = (date: Date): string => {
-  const uses24hourClock = getCalendars()?.[0]?.uses24hourClock;
-  return date.toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-    ...(uses24hourClock == null ? {} : { hour12: !uses24hourClock }),
-  });
-};
-
 /**
  * Converts ticks to a formatted string of hours and minutes.
  * Assumes that ticks are in milliseconds.

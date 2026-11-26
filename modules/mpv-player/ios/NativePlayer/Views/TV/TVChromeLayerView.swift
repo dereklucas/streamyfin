@@ -159,8 +159,11 @@ private struct TVTransportBar: View {
 
 	private static let endsAtFormatter: DateFormatter = {
 		let formatter = DateFormatter()
-		// The JS player renders hour12:false 2-digit — a fixed 24h format.
-		formatter.dateFormat = "HH:mm"
+		// The device's own clock: .short follows the 12/24-hour setting as well
+		// as the locale, and the autoupdating locale picks up a change to it.
+		formatter.locale = .autoupdatingCurrent
+		formatter.dateStyle = .none
+		formatter.timeStyle = .short
 		return formatter
 	}()
 

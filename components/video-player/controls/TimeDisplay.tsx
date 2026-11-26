@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { Text } from "@/components/common/Text";
-import { formatTimeString } from "@/utils/time";
+import { formatClockTime, formatTimeString } from "@/utils/time";
 
 interface TimeDisplayProps {
   currentTime: number;
@@ -24,11 +24,7 @@ export const TimeDisplay: FC<TimeDisplayProps> = ({
     const now = new Date();
     // remainingTime is in ms
     const finishTime = new Date(now.getTime() + remainingTime);
-    return finishTime.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatClockTime(finishTime);
   };
 
   return (

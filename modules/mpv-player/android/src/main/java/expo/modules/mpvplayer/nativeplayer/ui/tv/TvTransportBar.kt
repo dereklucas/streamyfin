@@ -1,5 +1,7 @@
 package expo.modules.mpvplayer.nativeplayer.ui.tv
 
+import android.content.Context
+import android.text.format.DateFormat
 import android.view.KeyEvent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -34,6 +36,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,9 +52,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import expo.modules.mpvplayer.nativeplayer.PlayerViewModel
 import expo.modules.mpvplayer.nativeplayer.ui.formatTimeSec
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -302,7 +303,7 @@ fun TvTransportBar(
                 }
             }
 
-            // Right: -Remaining time + Ends at HH:mm
+            // Right: -Remaining time + Ends at <time, by the device's clock>
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = "-${formatTimeSec(remaining)}",
@@ -313,7 +314,7 @@ fun TvTransportBar(
                 )
 
                 if (duration > 0) {
-                    val endsAtText = endsAtLabel(viewModel, remaining)
+                    val endsAtText = endsAtLabel(LocalContext.current, viewModel, remaining)
                     Text(
                         text = endsAtText,
                         color = Color.White.copy(alpha = 0.55f),
@@ -326,9 +327,10 @@ fun TvTransportBar(
     }
 }
 
-private fun endsAtLabel(viewModel: PlayerViewModel, remainingSec: Double): String {
+private fun endsAtLabel(context: Context, viewModel: PlayerViewModel, remainingSec: Double): String {
     val endsAtMillis = System.currentTimeMillis() + (remainingSec * 1000).toLong()
-    val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val timeFormatted = sdf.format(Date(endsAtMillis))
+    // The device's own clock: getTimeFormat follows the system 12/24-hour
+    // setting, which the locale alone does not carry.
+    val timeFormatted = DateFormat.getTimeFormat(context).format(Date(endsAtMillis))
     return viewModel.strings.formatEndsAt(timeFormatted)
 }

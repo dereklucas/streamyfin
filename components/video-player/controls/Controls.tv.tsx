@@ -76,7 +76,12 @@ import {
   buildSubtitleMenu,
   type TrackMenuRow,
 } from "@/utils/subtitles/trackMenu";
-import { formatTimeString, msToTicks, ticksToMs } from "@/utils/time";
+import {
+  formatClockTime,
+  formatTimeString,
+  msToTicks,
+  ticksToMs,
+} from "@/utils/time";
 import { CONTROLS_CONSTANTS } from "./constants";
 import { useVideoContext } from "./contexts/VideoContext";
 import { useChapterNavigation } from "./hooks/useChapterNavigation";
@@ -589,11 +594,7 @@ export const Controls: FC<Props> = ({
   const getFinishTime = () => {
     const now = new Date();
     const finishTime = new Date(now.getTime() + remainingTime);
-    return finishTime.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatClockTime(finishTime);
   };
 
   const toggleControls = useCallback(() => {
